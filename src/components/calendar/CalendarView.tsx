@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Clock, Trash2 } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { ChevronLeft, ChevronRight, Plus, Clock, Trash2, X } from 'lucide-react'
 import { CalendarEvent } from '@/types'
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
@@ -16,6 +16,16 @@ export default function CalendarView() {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+
+  const closeLightbox = useCallback(() => setLightboxUrl(null), [])
+
+  useEffect(() => {
+    if (!lightboxUrl) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') closeLightbox() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [lightboxUrl, closeLightbox])
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
@@ -62,6 +72,42 @@ export default function CalendarView() {
 
   return (
     <div style={{ padding: '2rem', maxWidth: '1100px', margin: '0 auto' }}>
+      {/* Lightbox */}
+      {lightboxUrl && (
+        <div
+          onClick={closeLightbox}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(0,0,0,0.85)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            backdropFilter: 'blur(6px)',
+            cursor: 'zoom-out',
+          }}
+        >
+          <button
+            onClick={closeLightbox}
+            style={{
+              position: 'absolute', top: '1.25rem', right: '1.25rem',
+              background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
+              borderRadius: '50%', width: '40px', height: '40px',
+              color: 'white', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <X size={20} />
+          </button>
+          <img
+            src={lightboxUrl}
+            alt="Adjunto"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '90vw', maxHeight: '88vh',
+              borderRadius: '14px', boxShadow: '0 30px 80px rgba(0,0,0,0.6)',
+              cursor: 'default',
+            }}
+          />
+        </div>
+      )}
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
         <div>
@@ -261,7 +307,13 @@ export default function CalendarView() {
                       <img
                         src={(event as any).image_url}
                         alt="Adjunto"
-                        style={{ width: '100%', borderRadius: '8px', marginTop: '8px', border: '1px solid var(--border)' }}
+                        onClick={() => setLightboxUrl((event as any).image_url)}
+                        style={{
+                          width: '100%', maxHeight: '120px', objectFit: 'cover',
+                          borderRadius: '8px', marginTop: '8px',
+                          border: '1px solid var(--border)',
+                          cursor: 'zoom-in', transition: 'opacity 0.15s',
+                        }}
                       />
                     )}
                   </div>

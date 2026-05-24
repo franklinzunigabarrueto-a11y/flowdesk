@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Plus, CheckCircle, Circle, Clock, Flag, Trash2, ImageIcon } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Plus, CheckCircle, Circle, Clock, Flag, Trash2, X } from 'lucide-react'
 import { Task, TaskStatus, TaskPriority } from '@/types'
 import { formatDate } from '@/lib/utils'
 
@@ -28,6 +28,14 @@ export default function TasksView() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<TaskStatus | 'all'>('all')
   const [showForm, setShowForm] = useState(false)
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const closeLightbox = useCallback(() => setLightboxUrl(null), [])
+  useEffect(() => {
+    if (!lightboxUrl) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') closeLightbox() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [lightboxUrl, closeLightbox])
   const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium' as TaskPriority, due_date: '' })
 
   useEffect(() => {
@@ -88,6 +96,27 @@ export default function TasksView() {
 
   return (
     <div style={{ padding: '2rem', maxWidth: '900px', margin: '0 auto' }}>
+      {lightboxUrl && (
+        <div onClick={closeLightbox} style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out',
+        }}>
+          <button onClick={closeLightbox} style={{
+            position: 'absolute', top: '1.25rem', right: '1.25rem',
+            background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
+            borderRadius: '50%', width: '40px', height: '40px',
+            color: 'white', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <X size={20} />
+          </button>
+          <img src={lightboxUrl} alt="Adjunto" onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '90vw', maxHeight: '88vh', borderRadius: '14px', boxShadow: '0 30px 80px rgba(0,0,0,0.6)', cursor: 'default' }}
+          />
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
         <div>
@@ -298,7 +327,8 @@ export default function TasksView() {
                   <img
                     src={(task as any).image_url}
                     alt="Adjunto"
-                    style={{ width: '100%', display: 'block', borderRadius: '10px', border: '1px solid var(--border)' }}
+                    onClick={() => setLightboxUrl((task as any).image_url)}
+                    style={{ width: '100%', maxHeight: '120px', objectFit: 'cover', display: 'block', borderRadius: '10px', border: '1px solid var(--border)', cursor: 'zoom-in', transition: 'opacity 0.15s' }}
                   />
                 </div>
               )}
