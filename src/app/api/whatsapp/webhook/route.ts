@@ -212,8 +212,18 @@ export async function POST(request: Request) {
       textContent = message.text.body
 
     } else if (message.type === 'audio') {
-      const { data: audioData, mimeType } = await downloadWhatsAppMedia(message.audio.id)
-      textContent = await transcribeAudio(audioData, mimeType)
+      try {
+        const { data: audioData, mimeType } = await downloadWhatsAppMedia(message.audio.id)
+        textContent = await transcribeAudio(audioData, mimeType)
+      } catch (e) {
+        console.error('Error transcribiendo audio:', e)
+        try { await sendWhatsAppMessage(from, 'No pude procesar el audio. Intenta enviarlo de nuevo o escríbeme el mensaje. 😅') } catch (e2) {}
+        return NextResponse.json({ ok: true })
+      }
+      if (!textContent.trim()) {
+        try { await sendWhatsAppMessage(from, 'No logré entender el audio. ¿Puedes repetirlo o escribirme el mensaje?') } catch (e) {}
+        return NextResponse.json({ ok: true })
+      }
 
     } else if (message.type === 'image') {
       const { data: imgData, mimeType } = await downloadWhatsAppMedia(message.image.id)
