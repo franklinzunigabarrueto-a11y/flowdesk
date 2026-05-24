@@ -213,8 +213,11 @@ Solo devuelve la pregunta, sin comentarios adicionales.`,
 
 export async function transcribeAudio(audioBase64: string, mimeType: string): Promise<string> {
   const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+  // Strip codec suffix — Gemini rejects "audio/ogg; codecs=opus", needs "audio/ogg"
+  const normalizedMimeType = mimeType.split(';')[0].trim()
+  console.log('[transcribeAudio] mimeType original:', mimeType, '→ normalizado:', normalizedMimeType)
   const result = await model.generateContent([
-    { inlineData: { data: audioBase64, mimeType } },
+    { inlineData: { data: audioBase64, mimeType: normalizedMimeType } },
     'Transcribe este audio en español de Chile. Es probable que el hablante sea un profesional de construcción. Términos comunes: ITO (Inspección Técnica de Obra), HH (horas hombre), faena, hormigonado, moldajes, cuadrilla, topógrafo, cubicación, subcontrato, replanteo, partida, avance de obra. Transcribe con precisión, respetando siglas y términos técnicos. Solo devuelve el texto transcrito, sin comentarios.',
   ])
   return result.response.text().trim()

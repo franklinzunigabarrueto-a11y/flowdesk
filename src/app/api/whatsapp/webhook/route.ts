@@ -215,8 +215,8 @@ export async function POST(request: Request) {
       try {
         const { data: audioData, mimeType } = await downloadWhatsAppMedia(message.audio.id)
         textContent = await transcribeAudio(audioData, mimeType)
-      } catch (e) {
-        console.error('Error transcribiendo audio:', e)
+      } catch (e: any) {
+        console.error('Error transcribiendo audio — status:', e?.status, 'message:', e?.message, 'full:', JSON.stringify(e))
         try { await sendWhatsAppMessage(from, 'No pude procesar el audio. Intenta enviarlo de nuevo o escríbeme el mensaje. 😅') } catch (e2) {}
         return NextResponse.json({ ok: true })
       }
