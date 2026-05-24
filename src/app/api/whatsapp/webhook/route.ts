@@ -298,6 +298,7 @@ export async function POST(request: Request) {
     try {
       intent = await analyzeMessage(textContent, today, userTimezone, user.name || '', message.type === 'image')
     } catch (aiError: any) {
+      console.error('Gemini error:', aiError?.status, aiError?.message, JSON.stringify(aiError))
       const isRateLimit = aiError?.message?.includes('429') || aiError?.status === 429
       const msg = isRateLimit ? 'Estoy procesando muchos mensajes, espera un momento. 🙏' : 'Tuve un problema procesando tu mensaje. Intenta de nuevo. 😅'
       try { await sendWhatsAppMessage(from, msg) } catch (e) {}
