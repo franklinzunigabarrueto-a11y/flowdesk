@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { analyzeMessage, completePendingItems, transcribeAudio, IntentItem } from '@/lib/gemini'
+import { analyzeMessage, completePendingItems, transcribeAudio, analyzeImageForQuestion, IntentItem } from '@/lib/gemini'
 import { sendWhatsAppMessage, downloadWhatsAppMedia } from '@/lib/whatsapp'
 import { createCalendarEvent, findCalendarByName, updateCalendarEvent } from '@/lib/google-calendar'
 
@@ -220,30 +220,20 @@ export async function POST(request: Request) {
       imageUrl = await uploadImageToStorage(supabase, imgData, mimeType, user.id)
       textContent = message.image.caption || ''
 
-      // Sin caption → guardar en bitácora con imagen y responder
+      // Sin caption → preguntar al usuario qué ocurre con la foto
       if (!textContent) {
-        await supabase.from('diary_entries').insert({
-          user_id: user.id,
-          content: '📷 Foto recibida',
-          entry_date: today,
-          whatsapp_message_id: messageId,
-        })
-        // Guardar la foto en la tarea más reciente sin imagen si existe
-        const { data: lastTask } = await supabase
-          .from('tasks')
-          .select('id, image_url')
-          .eq('user_id', user.id)
-          .is('image_url', null)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single()
-
-        if (lastTask && imageUrl) {
-          await supabase.from('tasks').update({ image_url: imageUrl }).eq('id', lastTask.id)
-          try { await sendWhatsAppMessage(from, `📷 Foto adjuntada a tu última tarea. ✅`) } catch (e) {}
-        } else {
-          try { await sendWhatsAppMessage(from, `📷 Foto guardada en tu bitácora. Si querías adjuntarla a una tarea, envíala con una descripción como caption.`) } catch (e) {}
+        let question = '📷 Recibí tu foto. ¿Qué ocurre con esto? ¿Me puedes explicar para registrarlo?'
+        try {
+          question = await analyzeImageForQuestion(imgData, mimeType)
+        } catch (e) {
+          console.error('Error analizando imagen para pregunta:', e)
         }
+        if (imageUrl) {
+          await supabase.from('users').update({
+            pending_intent: [{ type: 'pending_image', needs_info: ['description'], data: { image_url: imageUrl, confidence: 1 } }]
+          }).eq('id', user.id)
+        }
+        try { await sendWhatsAppMessage(from, question) } catch (e) {}
         return NextResponse.json({ ok: true })
       }
 
@@ -252,9 +242,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true })
     }
 
-    // ── Pendientes esperando info ──
+    // ── Imagen pendiente (foto sin caption, usuario ahora explica) ──
     const pendingItems: IntentItem[] | null = user.pending_intent || null
-    if (pendingItems && pendingItems.length > 0) {
+    let effectiveImageUrl = imageUrl
+    const pendingImageItem = pendingItems?.find(i => i.type === 'pending_image')
+
+    if (pendingImageItem) {
+      effectiveImageUrl = imageUrl || (pendingImageItem.data as any).image_url || null
+      await supabase.from('users').update({ pending_intent: null }).eq('id', user.id)
+      // Fall through to normal flow with the stored image attached
+    } else if (pendingItems && pendingItems.length > 0) {
+      // ── Pendientes esperando info ──
       let result
       try {
         result = await completePendingItems(pendingItems, textContent, today, userTimezone)
@@ -265,7 +263,7 @@ export async function POST(request: Request) {
       }
 
       await Promise.all(
-        result.completed.map(item => processItem(item, user, textContent, today, messageId, supabase, imageUrl))
+        result.completed.map(item => processItem(item, user, textContent, today, messageId, supabase, effectiveImageUrl))
       )
       await supabase.from('users').update({
         pending_intent: result.stillPending.length > 0 ? result.stillPending : null
@@ -317,7 +315,7 @@ export async function POST(request: Request) {
     const incompleteItems = resolvedItems.filter(i => i.needs_info && i.needs_info.length > 0)
 
     await Promise.all(
-      readyItems.map(item => processItem(item, user, textContent, today, messageId, supabase, imageUrl))
+      readyItems.map(item => processItem(item, user, textContent, today, messageId, supabase, effectiveImageUrl))
     )
 
     if (incompleteItems.length > 0) {

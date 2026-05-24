@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
 export type IntentItem = {
-  type: 'task' | 'event' | 'edit_event' | 'also_calendar' | 'diary' | 'task_complete' | 'greeting' | 'off_topic' | 'unknown'
+  type: 'task' | 'event' | 'edit_event' | 'also_calendar' | 'pending_image' | 'diary' | 'task_complete' | 'greeting' | 'off_topic' | 'unknown'
   needs_info?: string[] // campos que faltan para completar la acción
   data: {
     title?: string
@@ -184,6 +184,27 @@ Responde SOLO con JSON:
     stillPending: parsed.still_pending || [],
     response: parsed.response || 'Listo.',
   }
+}
+
+export async function analyzeImageForQuestion(imageBase64: string, mimeType: string): Promise<string> {
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
+  const result = await model.generateContent([
+    { inlineData: { data: imageBase64, mimeType } },
+    `Eres un asistente de productividad para profesionales de construcción en Chile. El usuario envió esta foto sin texto.
+
+Genera una pregunta corta y cordial para entender qué necesita hacer con la foto. Debe:
+- Describir brevemente lo que ves (ej: "esa fisura en el muro", "los materiales en terreno", "ese documento", "esa instalación")
+- Preguntar qué ocurrió o qué quiere registrar
+- Tono de obra, máximo 1-2 oraciones, sin listas ni opciones
+
+Ejemplos:
+"¿Qué ocurre con esa fisura? ¿Me puedes explicar para registrarlo?"
+"¿Qué pasa con ese hormigonado? ¿Lo agendo o lo dejo como pendiente?"
+"¿Qué necesitas hacer con ese material?"
+
+Solo devuelve la pregunta, sin comentarios adicionales.`,
+  ])
+  return result.response.text().trim()
 }
 
 export async function transcribeAudio(audioBase64: string, mimeType: string): Promise<string> {
