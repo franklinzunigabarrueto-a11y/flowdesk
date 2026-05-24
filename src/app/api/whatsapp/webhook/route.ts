@@ -288,8 +288,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true })
     }
 
-    const readyItems = intent.items.filter(i => !i.needs_info || i.needs_info.length === 0)
-    const incompleteItems = intent.items.filter(i => i.needs_info && i.needs_info.length > 0)
+    // Resolve also_calendar items: replace with event using last task's data
+    const resolvedItems = await Promise.all(
+      intent.items.map(async (item) => {
+        if (item.type !== 'also_calendar') return item
+        const { data: lastTask } = await supabase
+          .from('tasks')
+          .select('id, title, description, image_url')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
+        if (!lastTask) return { ...item, type: 'unknown' as const }
+        return {
+          type: 'event' as const,
+          needs_info: item.data.event_start ? [] : ['event_start'],
+          data: {
+            ...item.data,
+            title: item.data.title || lastTask.title,
+            description: item.data.description || lastTask.description,
+            confidence: 0.9,
+          },
+        }
+      })
+    )
+
+    const readyItems = resolvedItems.filter(i => !i.needs_info || i.needs_info.length === 0)
+    const incompleteItems = resolvedItems.filter(i => i.needs_info && i.needs_info.length > 0)
 
     await Promise.all(
       readyItems.map(item => processItem(item, user, textContent, today, messageId, supabase, imageUrl))

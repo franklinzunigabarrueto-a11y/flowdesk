@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
 export type IntentItem = {
-  type: 'task' | 'event' | 'edit_event' | 'diary' | 'task_complete' | 'greeting' | 'off_topic' | 'unknown'
+  type: 'task' | 'event' | 'edit_event' | 'also_calendar' | 'diary' | 'task_complete' | 'greeting' | 'off_topic' | 'unknown'
   needs_info?: string[] // campos que faltan para completar la acción
   data: {
     title?: string
@@ -48,15 +48,19 @@ TIPOS DE INTENT:
 - "task": algo que debe hacer, un pendiente
 - "event": cita, reunión, faena, actividad con fecha/hora
 - "edit_event": modificar, cambiar, corregir, actualizar el último evento creado o uno mencionado
+- "also_calendar": el usuario quiere agregar al calendario el último ítem creado, sin dar información nueva. Usar cuando dice "agrégala al calendario", "ponla también en el calendario", "agrégalo como evento", etc. Si menciona una hora en este mensaje, inclúyela en event_start; si no hay hora, pon "event_start" en needs_info.
 - "diary": reflexión, relato de actividades del día
 - "task_complete": indica que terminó o completó algo pendiente
 - "greeting": saludo sin acción concreta
 - "off_topic": pregunta sin relación con productividad, agenda u obra
 - "unknown": no encaja en ninguna categoría
 
+REGLA TAREA+EVENTO SIMULTÁNEO: Si el mensaje describe una acción pendiente CON hora específica (ej: "enviar informe hoy a las 11", "llamar al proveedor mañana a las 15:00"), genera SIEMPRE DOS items: un "task" (con due_date) Y un "event" (con event_start a esa hora exacta). Solo genera un único "task" cuando hay fecha pero no hora específica.
+
 CAMPOS REQUERIDOS:
 - event: SIEMPRE necesita event_start. Si falta fecha u hora, pon "event_start" en needs_info.
 - edit_event: usa "title" para el nuevo título (si cambia), "event_start" para la nueva hora/fecha (si cambia). No requiere needs_info.
+- also_calendar: no requiere datos extra (el sistema buscará el último ítem). Solo incluye event_start si el usuario lo menciona en este mensaje.
 - task: solo title. due_date es opcional.
 - diary/greeting/off_topic: no requieren data.
 
@@ -77,7 +81,7 @@ Responde SOLO con JSON válido:
 {
   "items": [
     {
-      "type": "task|event|edit_event|diary|task_complete|greeting|off_topic|unknown",
+      "type": "task|event|edit_event|also_calendar|diary|task_complete|greeting|off_topic|unknown",
       "needs_info": [],
       "data": {
         "title": "título conciso",
