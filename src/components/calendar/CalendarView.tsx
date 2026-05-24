@@ -17,6 +17,9 @@ export default function CalendarView() {
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [showForm, setShowForm] = useState(false)
+  const [newEvent, setNewEvent] = useState({ title: '', date: '', time: '', description: '' })
+  const [saving, setSaving] = useState(false)
 
   const closeLightbox = useCallback(() => setLightboxUrl(null), [])
 
@@ -44,6 +47,25 @@ export default function CalendarView() {
       setEvents([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function createEvent(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newEvent.title.trim() || !newEvent.date || !newEvent.time) return
+    setSaving(true)
+    try {
+      const startTime = `${newEvent.date}T${newEvent.time}:00`
+      await fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newEvent.title, description: newEvent.description, start_time: startTime }),
+      })
+      setNewEvent({ title: '', date: '', time: '', description: '' })
+      setShowForm(false)
+      fetchEvents()
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -116,7 +138,7 @@ export default function CalendarView() {
             Gestiona tus eventos y agenda de obra
           </p>
         </div>
-        <button style={{
+        <button onClick={() => setShowForm(f => !f)} style={{
           display: 'flex', alignItems: 'center', gap: '8px',
           padding: '10px 18px', borderRadius: '10px',
           background: 'var(--primary)',
@@ -127,6 +149,41 @@ export default function CalendarView() {
           <Plus size={16} /> Nuevo evento
         </button>
       </div>
+
+      {showForm && (
+        <form onSubmit={createEvent} style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: '16px', padding: '1.5rem', marginBottom: '1.5rem',
+          animation: 'fadeIn 0.3s ease'
+        }}>
+          <div style={{ display: 'grid', gap: '1rem' }}>
+            <input type="text" placeholder="Título del evento..." value={newEvent.title} required
+              onChange={e => setNewEvent(p => ({ ...p, title: e.target.value }))}
+              style={{ padding: '10px 14px', borderRadius: '10px', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--foreground)', fontSize: '0.95rem', outline: 'none' }}
+            />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <input type="date" value={newEvent.date} required
+                onChange={e => setNewEvent(p => ({ ...p, date: e.target.value }))}
+                style={{ padding: '10px 14px', borderRadius: '10px', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--foreground)', fontSize: '0.875rem', outline: 'none' }}
+              />
+              <input type="time" value={newEvent.time} required
+                onChange={e => setNewEvent(p => ({ ...p, time: e.target.value }))}
+                style={{ padding: '10px 14px', borderRadius: '10px', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--foreground)', fontSize: '0.875rem', outline: 'none' }}
+              />
+            </div>
+            <textarea placeholder="Descripción (opcional)..." value={newEvent.description} rows={2}
+              onChange={e => setNewEvent(p => ({ ...p, description: e.target.value }))}
+              style={{ padding: '10px 14px', borderRadius: '10px', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--foreground)', fontSize: '0.875rem', outline: 'none', resize: 'vertical' }}
+            />
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setShowForm(false)} style={{ padding: '8px 16px', borderRadius: '8px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.875rem' }}>Cancelar</button>
+              <button type="submit" disabled={saving} style={{ padding: '8px 20px', borderRadius: '8px', background: 'var(--primary)', border: 'none', color: 'white', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600 }}>
+                {saving ? 'Guardando...' : 'Crear evento'}
+              </button>
+            </div>
+          </div>
+        </form>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.5rem' }}>
         {/* Calendario */}

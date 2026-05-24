@@ -9,6 +9,7 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(1)
   const [phone, setPhone] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [user, setUser] = useState<{ name: string; email: string } | null>(null)
   const router = useRouter()
 
@@ -52,6 +53,7 @@ export default function OnboardingPage() {
       setTimeout(() => router.push('/dashboard'), 2500)
     } catch (err) {
       console.error(err)
+      setError('Hubo un problema al conectar. Verifica el número e inténtalo de nuevo.')
     } finally {
       setLoading(false)
     }
@@ -187,6 +189,12 @@ export default function OnboardingPage() {
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
               Incluye el código de país. Ej: +56 para Chile, +52 para México, +54 para Argentina.
             </p>
+
+            {error && (
+              <p style={{ fontSize: '0.85rem', color: '#ef4444', marginBottom: '1rem', padding: '10px 14px', background: 'rgba(239,68,68,0.08)', borderRadius: '10px', border: '1px solid rgba(239,68,68,0.2)' }}>
+                {error}
+              </p>
+            )}
 
             <button
               type="submit"

@@ -18,8 +18,10 @@ export async function GET(request: Request) {
 
   if (month && year) {
     const start = `${year}-${String(month).padStart(2, '0')}-01`
-    const end = `${year}-${String(Number(month) + 1).padStart(2, '0')}-01`
-    query = query.gte('start_time', start).lt('start_time', end)
+    const nextMonth = Number(month) === 12
+      ? `${Number(year) + 1}-01-01`
+      : `${year}-${String(Number(month) + 1).padStart(2, '0')}-01`
+    query = query.gte('start_time', start).lt('start_time', nextMonth)
   }
 
   const { data: dbEvents, error } = await query
@@ -31,7 +33,8 @@ export async function GET(request: Request) {
     start: e.start_time,
     end: e.end_time,
     description: e.description,
-    color: e.color || '#7c5cfc',
+    color: e.color || '#f97316',
+    image_url: e.image_url || null,
   }))
 
   return NextResponse.json({ events })
