@@ -103,7 +103,7 @@ export async function analyzeMessage(
   userName = ''
 ): Promise<MessageIntent> {
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
-  const utcOffset = getUtcOffset()
+  const utcOffset = getUtcOffset(timezone)
 
   const now = new Date()
   const currentHour = parseInt(now.toLocaleTimeString('en-US', { hour: '2-digit', hour12: false, timeZone: timezone }))
@@ -135,7 +135,7 @@ export async function completePendingItems(
   timezone = 'America/Santiago'
 ): Promise<{ completed: IntentItem[]; stillPending: IntentItem[]; response: string }> {
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
-  const utcOffset = getUtcOffset()
+  const utcOffset = getUtcOffset(timezone)
 
   const pendingSummary = pendingItems.map(item =>
     `- "${item.data.title}" (falta: ${item.needs_info?.join(', ')})`
@@ -191,11 +191,15 @@ export async function transcribeAudio(audioBase64: string, mimeType: string): Pr
   return result.response.text().trim()
 }
 
-function getUtcOffset(): string {
+function getUtcOffset(timezone: string): string {
+  // Calcular el offset real del timezone del usuario, no del servidor
   const now = new Date()
-  const offsetMinutes = -now.getTimezoneOffset()
-  const offsetHours = Math.floor(Math.abs(offsetMinutes) / 60)
-  const offsetMins = Math.abs(offsetMinutes) % 60
+  const utcDate = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }))
+  const tzDate = new Date(now.toLocaleString('en-US', { timeZone: timezone }))
+  const offsetMinutes = (tzDate.getTime() - utcDate.getTime()) / 60000
+  const absOffset = Math.abs(offsetMinutes)
+  const hours = Math.floor(absOffset / 60)
+  const mins = absOffset % 60
   const sign = offsetMinutes >= 0 ? '+' : '-'
-  return `${sign}${String(offsetHours).padStart(2, '0')}:${String(offsetMins).padStart(2, '0')}`
+  return `${sign}${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`
 }
