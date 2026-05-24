@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, CheckCircle, Circle, Clock, Flag, Trash2 } from 'lucide-react'
+import { Plus, CheckCircle, Circle, Clock, Flag, Trash2, ImageIcon } from 'lucide-react'
 import { Task, TaskStatus, TaskPriority } from '@/types'
 import { formatDate } from '@/lib/utils'
 
@@ -229,7 +229,6 @@ export default function TasksView() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {filtered.map(task => (
             <div key={task.id} style={{
-              display: 'flex', alignItems: 'flex-start', gap: '12px',
               padding: '1rem 1.25rem',
               background: 'var(--surface)',
               border: '1px solid var(--border)',
@@ -238,59 +237,71 @@ export default function TasksView() {
               opacity: task.status === 'completed' ? 0.55 : 1,
               transition: 'all 0.2s'
             }}>
-              <button
-                onClick={() => toggleTask(task)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', flexShrink: 0, marginTop: '1px' }}
-              >
-                {task.status === 'completed'
-                  ? <CheckCircle size={20} color="var(--success)" />
-                  : <Circle size={20} color="var(--text-muted)" />
-                }
-              </button>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                <button
+                  onClick={() => toggleTask(task)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', flexShrink: 0, marginTop: '1px' }}
+                >
+                  {task.status === 'completed'
+                    ? <CheckCircle size={20} color="var(--success)" />
+                    : <Circle size={20} color="var(--text-muted)" />
+                  }
+                </button>
 
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{
-                  fontSize: '0.9rem', fontWeight: 500,
-                  textDecoration: task.status === 'completed' ? 'line-through' : 'none',
-                  color: task.status === 'completed' ? 'var(--text-muted)' : 'var(--foreground)'
-                }}>
-                  {task.title}
-                </p>
-                {task.description && (
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    {task.description}
-                  </p>
-                )}
-                <div style={{ display: 'flex', gap: '12px', marginTop: '8px', alignItems: 'center' }}>
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center', gap: '4px',
-                    fontSize: '0.72rem', color: PRIORITY_COLORS[task.priority],
-                    background: `${PRIORITY_COLORS[task.priority]}15`,
-                    padding: '2px 8px', borderRadius: '100px'
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{
+                    fontSize: '0.9rem', fontWeight: 500,
+                    textDecoration: task.status === 'completed' ? 'line-through' : 'none',
+                    color: task.status === 'completed' ? 'var(--text-muted)' : 'var(--foreground)'
                   }}>
-                    <Flag size={10} /> {PRIORITY_LABELS[task.priority]}
-                  </span>
-                  {task.due_date && (
+                    {task.title}
+                  </p>
+                  {task.description && (
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      {task.description}
+                    </p>
+                  )}
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '8px', alignItems: 'center' }}>
                     <span style={{
                       display: 'inline-flex', alignItems: 'center', gap: '4px',
-                      fontSize: '0.72rem', color: 'var(--text-muted)'
+                      fontSize: '0.72rem', color: PRIORITY_COLORS[task.priority],
+                      background: `${PRIORITY_COLORS[task.priority]}15`,
+                      padding: '2px 8px', borderRadius: '100px'
                     }}>
-                      <Clock size={10} /> {formatDate(task.due_date)}
+                      <Flag size={10} /> {PRIORITY_LABELS[task.priority]}
                     </span>
-                  )}
+                    {task.due_date && (
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '4px',
+                        fontSize: '0.72rem', color: 'var(--text-muted)'
+                      }}>
+                        <Clock size={10} /> {formatDate(task.due_date)}
+                      </span>
+                    )}
+                  </div>
                 </div>
+
+                <button
+                  onClick={() => deleteTask(task.id)}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'var(--text-muted)', padding: '4px', flexShrink: 0,
+                    opacity: 0.5, transition: 'opacity 0.2s'
+                  }}
+                >
+                  <Trash2 size={16} />
+                </button>
               </div>
 
-              <button
-                onClick={() => deleteTask(task.id)}
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  color: 'var(--text-muted)', padding: '4px', flexShrink: 0,
-                  opacity: 0.5, transition: 'opacity 0.2s'
-                }}
-              >
-                <Trash2 size={16} />
-              </button>
+              {(task as any).image_url && (
+                <div style={{ marginTop: '10px', maxWidth: '360px' }}>
+                  <img
+                    src={(task as any).image_url}
+                    alt="Adjunto"
+                    style={{ width: '100%', display: 'block', borderRadius: '10px', border: '1px solid var(--border)' }}
+                  />
+                </div>
+              )}
             </div>
           ))}
         </div>

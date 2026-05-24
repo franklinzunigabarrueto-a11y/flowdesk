@@ -257,6 +257,13 @@ export default function CalendarView() {
                         {event.description}
                       </p>
                     )}
+                    {(event as any).image_url && (
+                      <img
+                        src={(event as any).image_url}
+                        alt="Adjunto"
+                        style={{ width: '100%', borderRadius: '8px', marginTop: '8px', border: '1px solid var(--border)' }}
+                      />
+                    )}
                   </div>
                 ))
               )}

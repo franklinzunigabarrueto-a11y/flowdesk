@@ -22,13 +22,39 @@ export async function GET(request: Request) {
   return new Response('Forbidden', { status: 403 })
 }
 
+async function uploadImageToStorage(
+  supabase: ReturnType<typeof getSupabase>,
+  base64: string,
+  mimeType: string,
+  userId: string
+): Promise<string | null> {
+  try {
+    const ext = mimeType.includes('png') ? 'png' : mimeType.includes('gif') ? 'gif' : 'jpg'
+    const filename = `${userId}/${Date.now()}.${ext}`
+    const buffer = Buffer.from(base64, 'base64')
+
+    const { error } = await supabase.storage
+      .from('attachments')
+      .upload(filename, buffer, { contentType: mimeType, upsert: false })
+
+    if (error) { console.error('Error subiendo imagen:', error); return null }
+
+    const { data } = supabase.storage.from('attachments').getPublicUrl(filename)
+    return data.publicUrl
+  } catch (e) {
+    console.error('Error en uploadImageToStorage:', e)
+    return null
+  }
+}
+
 async function processItem(
   item: IntentItem,
   user: any,
   textContent: string,
   today: string,
   messageId: string,
-  supabase: ReturnType<typeof getSupabase>
+  supabase: ReturnType<typeof getSupabase>,
+  imageUrl?: string | null
 ) {
   switch (item.type) {
     case 'task': {
@@ -40,6 +66,7 @@ async function processItem(
         due_date: item.data.due_date,
         status: 'pending',
         whatsapp_message_id: messageId,
+        image_url: imageUrl || null,
       })
       break
     }
@@ -83,12 +110,12 @@ async function processItem(
         end_time: item.data.event_end,
         google_event_id: googleEventId,
         whatsapp_message_id: messageId,
+        image_url: imageUrl || null,
       })
       break
     }
 
     case 'edit_event': {
-      // Buscar el evento más reciente del usuario
       const { data: lastEvent } = await supabase
         .from('calendar_events')
         .select('*')
@@ -103,6 +130,7 @@ async function processItem(
       if (item.data.title) updates.title = item.data.title
       if (item.data.event_start) updates.start_time = item.data.event_start
       if (item.data.event_end) updates.end_time = item.data.event_end
+      if (imageUrl) updates.image_url = imageUrl
 
       await supabase.from('calendar_events').update(updates).eq('id', lastEvent.id)
 
@@ -176,52 +204,75 @@ export async function POST(request: Request) {
     }
 
     let textContent = ''
-    if (message.type === 'text') {
-      textContent = message.text.body
-    } else if (message.type === 'audio') {
-      const mediaId = message.audio.id
-      const { data: audioData, mimeType } = await downloadWhatsAppMedia(mediaId)
-      textContent = await transcribeAudio(audioData, mimeType)
-    } else {
-      try { await sendWhatsAppMessage(from, 'Solo puedo procesar mensajes de texto y audios por ahora. 😊') } catch (e) {}
-      return NextResponse.json({ ok: true })
-    }
-
+    let imageUrl: string | null = null
     const userTimezone = user.timezone || 'America/Santiago'
     const today = new Date().toLocaleDateString('en-CA', { timeZone: userTimezone })
 
-    // ── Si hay items pendientes esperando info, intentar completarlos ──
-    const pendingItems: IntentItem[] | null = user.pending_intent || null
+    if (message.type === 'text') {
+      textContent = message.text.body
 
+    } else if (message.type === 'audio') {
+      const { data: audioData, mimeType } = await downloadWhatsAppMedia(message.audio.id)
+      textContent = await transcribeAudio(audioData, mimeType)
+
+    } else if (message.type === 'image') {
+      const { data: imgData, mimeType } = await downloadWhatsAppMedia(message.image.id)
+      imageUrl = await uploadImageToStorage(supabase, imgData, mimeType, user.id)
+      textContent = message.image.caption || ''
+
+      // Sin caption → guardar en bitácora con imagen y responder
+      if (!textContent) {
+        await supabase.from('diary_entries').insert({
+          user_id: user.id,
+          content: '📷 Foto recibida',
+          entry_date: today,
+          whatsapp_message_id: messageId,
+        })
+        // Guardar la foto en la tarea más reciente sin imagen si existe
+        const { data: lastTask } = await supabase
+          .from('tasks')
+          .select('id, image_url')
+          .eq('user_id', user.id)
+          .is('image_url', null)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
+
+        if (lastTask && imageUrl) {
+          await supabase.from('tasks').update({ image_url: imageUrl }).eq('id', lastTask.id)
+          try { await sendWhatsAppMessage(from, `📷 Foto adjuntada a tu última tarea. ✅`) } catch (e) {}
+        } else {
+          try { await sendWhatsAppMessage(from, `📷 Foto guardada en tu bitácora. Si querías adjuntarla a una tarea, envíala con una descripción como caption.`) } catch (e) {}
+        }
+        return NextResponse.json({ ok: true })
+      }
+
+    } else {
+      try { await sendWhatsAppMessage(from, 'Solo puedo procesar mensajes de texto, audios e imágenes por ahora. 😊') } catch (e) {}
+      return NextResponse.json({ ok: true })
+    }
+
+    // ── Pendientes esperando info ──
+    const pendingItems: IntentItem[] | null = user.pending_intent || null
     if (pendingItems && pendingItems.length > 0) {
       let result
       try {
         result = await completePendingItems(pendingItems, textContent, today, userTimezone)
       } catch (e) {
-        console.error('Error completando pendientes:', e)
         await supabase.from('users').update({ pending_intent: null }).eq('id', user.id)
         try { await sendWhatsAppMessage(from, 'Tuve un problema retomando la conversación. Intenta de nuevo. 😅') } catch (e2) {}
         return NextResponse.json({ ok: true })
       }
 
-      // Procesar los items que quedaron completos
       await Promise.all(
-        result.completed.map(item => processItem(item, user, textContent, today, messageId, supabase))
+        result.completed.map(item => processItem(item, user, textContent, today, messageId, supabase, imageUrl))
       )
-
-      // Guardar los que siguen pendientes (o limpiar si ya no hay)
       await supabase.from('users').update({
         pending_intent: result.stillPending.length > 0 ? result.stillPending : null
       }).eq('id', user.id)
-
-      // Guardar en bitácora
       await supabase.from('diary_entries').insert({
-        user_id: user.id,
-        content: textContent,
-        entry_date: today,
-        whatsapp_message_id: messageId,
+        user_id: user.id, content: textContent, entry_date: today, whatsapp_message_id: messageId,
       })
-
       try { await sendWhatsAppMessage(from, result.response) } catch (e) {}
       return NextResponse.json({ ok: true })
     }
@@ -232,33 +283,24 @@ export async function POST(request: Request) {
       intent = await analyzeMessage(textContent, today, userTimezone, user.name || '')
     } catch (aiError: any) {
       const isRateLimit = aiError?.message?.includes('429') || aiError?.status === 429
-      const msg = isRateLimit
-        ? 'Estoy procesando muchos mensajes, espera un momento. 🙏'
-        : 'Tuve un problema procesando tu mensaje. Intenta de nuevo. 😅'
+      const msg = isRateLimit ? 'Estoy procesando muchos mensajes, espera un momento. 🙏' : 'Tuve un problema procesando tu mensaje. Intenta de nuevo. 😅'
       try { await sendWhatsAppMessage(from, msg) } catch (e) {}
       return NextResponse.json({ ok: true })
     }
 
-    // Separar items completos de incompletos
     const readyItems = intent.items.filter(i => !i.needs_info || i.needs_info.length === 0)
     const incompleteItems = intent.items.filter(i => i.needs_info && i.needs_info.length > 0)
 
-    // Procesar los completos de inmediato
     await Promise.all(
-      readyItems.map(item => processItem(item, user, textContent, today, messageId, supabase))
+      readyItems.map(item => processItem(item, user, textContent, today, messageId, supabase, imageUrl))
     )
 
-    // Guardar pendientes si los hay
     if (incompleteItems.length > 0) {
       await supabase.from('users').update({ pending_intent: incompleteItems }).eq('id', user.id)
     }
 
-    // Guardar en bitácora
     await supabase.from('diary_entries').insert({
-      user_id: user.id,
-      content: textContent,
-      entry_date: today,
-      whatsapp_message_id: messageId,
+      user_id: user.id, content: textContent, entry_date: today, whatsapp_message_id: messageId,
     })
 
     try { await sendWhatsAppMessage(from, intent.response) } catch (e) {}
