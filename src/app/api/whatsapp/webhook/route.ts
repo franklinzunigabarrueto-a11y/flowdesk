@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { analyzeMessage, transcribeAudio } from '@/lib/gemini'
 import { sendWhatsAppMessage, downloadWhatsAppMedia } from '@/lib/whatsapp'
+import { createCalendarEvent, findCalendarByName } from '@/lib/google-calendar'
 
 function getSupabase() {
   return createClient(
@@ -45,7 +46,11 @@ export async function POST(request: Request) {
       .single()
 
     if (!user) {
-      await sendWhatsAppMessage(from, 'No encontré tu cuenta en FlowDesk. Regístrate en nuestra app web primero.')
+      try {
+        await sendWhatsAppMessage(from, 'No encontré tu cuenta en FlowDesk. Regístrate en nuestra app web primero.')
+      } catch (e) {
+        console.error('Error enviando mensaje a usuario no registrado:', e)
+      }
       return NextResponse.json({ ok: true })
     }
 
@@ -62,8 +67,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true })
     }
 
-    const today = new Date().toISOString().split('T')[0]
-    const intent = await analyzeMessage(textContent, today)
+    const userTimezone = user.timezone || 'America/Santiago'
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: userTimezone })
+    let intent
+    try {
+      intent = await analyzeMessage(textContent, today, userTimezone)
+    } catch (aiError: any) {
+      const isRateLimit = aiError?.message?.includes('429') || aiError?.status === 429
+      const msg = isRateLimit
+        ? 'Estoy procesando muchos mensajes, espera un momento e intenta de nuevo. 🙏'
+        : 'Tuve un problema procesando tu mensaje. Intenta de nuevo en unos segundos. 😅'
+      await sendWhatsAppMessage(from, msg)
+      return NextResponse.json({ ok: true })
+    }
 
     switch (intent.type) {
       case 'task': {
@@ -88,14 +104,43 @@ export async function POST(request: Request) {
       }
 
       case 'event': {
-        const { data: { session } } = await supabase.auth.admin.getUserById(user.id) as any
         if (intent.data.event_start) {
+          const eventTitle = intent.data.title || textContent.substring(0, 80)
+          let googleEventId: string | undefined
+
+          if (user.google_access_token) {
+            try {
+              let calendarId = 'primary'
+              if (intent.data.calendar_name) {
+                calendarId = await findCalendarByName({
+                  accessToken: user.google_access_token,
+                  refreshToken: user.google_refresh_token,
+                  name: intent.data.calendar_name,
+                })
+              }
+              const gcalEvent = await createCalendarEvent({
+                accessToken: user.google_access_token,
+                refreshToken: user.google_refresh_token,
+                title: eventTitle,
+                description: intent.data.description,
+                startTime: intent.data.event_start,
+                endTime: intent.data.event_end,
+                timezone: userTimezone,
+                calendarId,
+              })
+              googleEventId = gcalEvent.googleEventId
+            } catch (calError) {
+              console.error('Error creando evento en Google Calendar:', calError)
+            }
+          }
+
           await supabase.from('calendar_events').insert({
             user_id: user.id,
-            title: intent.data.title || textContent.substring(0, 80),
+            title: eventTitle,
             description: intent.data.description,
             start_time: intent.data.event_start,
             end_time: intent.data.event_end,
+            google_event_id: googleEventId,
             whatsapp_message_id: messageId,
           })
         }
@@ -153,7 +198,11 @@ export async function POST(request: Request) {
       }
     }
 
-    await sendWhatsAppMessage(from, intent.response)
+    try {
+      await sendWhatsAppMessage(from, intent.response)
+    } catch (e) {
+      console.error('Error enviando respuesta WhatsApp:', e)
+    }
     return NextResponse.json({ ok: true })
 
   } catch (error) {

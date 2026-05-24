@@ -13,6 +13,7 @@ export type MessageIntent = {
     priority?: 'low' | 'medium' | 'high'
     content?: string
     task_keywords?: string[]
+    calendar_name?: string | null
     confidence: number
   }
   response: string
@@ -38,6 +39,7 @@ Responde SOLO con JSON válido con esta estructura exacta:
     "priority": "low|medium|high según urgencia implícita",
     "content": "contenido completo para entrada de diario",
     "task_keywords": ["palabras clave para buscar tarea relacionada si es task_complete"],
+    "calendar_name": "nombre del calendario si el usuario lo especifica explícitamente (ej: 'trabajo', 'personal', 'familia'), null si no lo menciona",
     "confidence": 0.0 a 1.0
   },
   "response": "Respuesta amigable en español al usuario confirmando lo que se registró"
@@ -45,13 +47,22 @@ Responde SOLO con JSON válido con esta estructura exacta:
 
 export async function analyzeMessage(
   message: string,
-  currentDate: string
+  currentDate: string,
+  timezone = 'America/Santiago'
 ): Promise<MessageIntent> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
+
+  const now = new Date()
+  const offsetMinutes = -now.getTimezoneOffset()
+  const offsetHours = Math.floor(Math.abs(offsetMinutes) / 60)
+  const offsetMins = Math.abs(offsetMinutes) % 60
+  const sign = offsetMinutes >= 0 ? '+' : '-'
+  const utcOffset = `${sign}${String(offsetHours).padStart(2, '0')}:${String(offsetMins).padStart(2, '0')}`
 
   const prompt = `${SYSTEM_PROMPT}
 
-Fecha actual: ${currentDate}
+Fecha y hora actual: ${currentDate} (zona horaria: ${timezone}, UTC${utcOffset})
+IMPORTANTE: Cuando generes event_start y event_end, usa la hora LOCAL del usuario con el offset correcto. Ejemplo: si el usuario dice "14:00" y está en UTC-4, genera "2026-05-25T14:00:00-04:00"
 
 Mensaje del usuario: "${message}"
 
@@ -67,7 +78,7 @@ Responde solo con el JSON, sin texto adicional.`
 }
 
 export async function transcribeAudio(audioBase64: string, mimeType: string): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
   const result = await model.generateContent([
     {
