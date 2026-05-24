@@ -72,6 +72,16 @@ export async function createCalendarEvent(params: {
   }
 }
 
+export async function deleteCalendarEvent(params: {
+  accessToken: string
+  refreshToken?: string
+  googleEventId: string
+}): Promise<void> {
+  const auth = getOAuthClient(params.accessToken, params.refreshToken)
+  const calendar = google.calendar({ version: 'v3', auth })
+  await calendar.events.delete({ calendarId: 'primary', eventId: params.googleEventId })
+}
+
 export async function listCalendarEvents(params: {
   accessToken: string
   refreshToken?: string

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Clock } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Clock, Trash2 } from 'lucide-react'
 import { CalendarEvent } from '@/types'
 import { formatDate } from '@/lib/utils'
 
@@ -16,6 +16,7 @@ export default function CalendarView() {
   const [selectedDay, setSelectedDay] = useState(today.getDate())
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
@@ -34,6 +35,16 @@ export default function CalendarView() {
       setEvents([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function deleteEvent(eventId: string) {
+    setDeletingId(eventId)
+    try {
+      await fetch(`/api/events/${eventId}`, { method: 'DELETE' })
+      setEvents(prev => prev.filter(e => e.id !== eventId))
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -216,9 +227,26 @@ export default function CalendarView() {
                     marginBottom: '8px',
                     borderLeft: `3px solid ${event.color || EVENT_COLORS[i % EVENT_COLORS.length]}`
                   }}>
-                    <p style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '4px' }}>
-                      {event.title}
-                    </p>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+                      <p style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '4px' }}>
+                        {event.title}
+                      </p>
+                      <button
+                        onClick={() => deleteEvent(event.id)}
+                        disabled={deletingId === event.id}
+                        style={{
+                          background: 'transparent', border: 'none',
+                          cursor: 'pointer', color: 'var(--text-muted)',
+                          padding: '2px', borderRadius: '6px',
+                          opacity: deletingId === event.id ? 0.4 : 1,
+                          flexShrink: 0,
+                          transition: 'color 0.2s'
+                        }}
+                        title="Eliminar evento"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
                       <Clock size={12} />
                       {new Date(event.start).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
