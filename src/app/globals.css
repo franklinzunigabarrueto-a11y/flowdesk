@@ -1,20 +1,20 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0c0c0c;
-  --foreground: #f5f5f5;
-  --surface: #141414;
-  --surface-hover: #1c1c1c;
-  --border: #2a2a2a;
+  --background: #ffffff;
+  --foreground: #1c1917;
+  --surface: #f8f6f3;
+  --surface-hover: #f0ede8;
+  --border: #e8e4de;
   --primary: #f97316;
   --primary-dark: #c2410c;
-  --primary-glow: rgba(249, 115, 22, 0.3);
-  --accent: #ffffff;
-  --accent-glow: rgba(255, 255, 255, 0.15);
-  --text-muted: #6b7280;
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --danger: #ef4444;
+  --primary-glow: rgba(249, 115, 22, 0.2);
+  --accent: #1c1917;
+  --accent-glow: rgba(0, 0, 0, 0.08);
+  --text-muted: #78716c;
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
 }
 
 @theme inline {
@@ -50,7 +50,7 @@ html, body {
 }
 
 .glass {
-  background: rgba(20, 20, 20, 0.7);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
   border: 1px solid var(--border);
 }

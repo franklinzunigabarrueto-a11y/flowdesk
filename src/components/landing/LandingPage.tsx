@@ -8,12 +8,12 @@ import { ArrowRight, MessageSquare, Calendar, CheckSquare, BookOpen, Mic, Star, 
 const C = {
   orange: '#f97316',
   orangeDark: '#c2410c',
-  orangeGlow: 'rgba(249,115,22,0.35)',
-  bg: '#0c0c0c',
-  surface: 'rgba(255,255,255,0.03)',
-  border: 'rgba(255,255,255,0.07)',
-  text: '#f5f5f5',
-  muted: 'rgba(245,245,245,0.4)',
+  orangeGlow: 'rgba(249,115,22,0.25)',
+  bg: '#ffffff',
+  surface: 'rgba(0,0,0,0.03)',
+  border: 'rgba(0,0,0,0.08)',
+  text: '#1c1917',
+  muted: 'rgba(28,25,23,0.5)',
 }
 
 export default function LandingPage() {
@@ -44,7 +44,7 @@ export default function LandingPage() {
       <nav style={{
         position: 'sticky', top: 0, zIndex: 50,
         borderBottom: `1px solid ${C.border}`,
-        background: 'rgba(12,12,12,0.88)',
+        background: 'rgba(255,255,255,0.92)',
         backdropFilter: 'blur(16px)',
       }}>
         <div style={{ maxWidth: '1120px', margin: '0 auto', padding: '0 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px' }}>
@@ -53,7 +53,7 @@ export default function LandingPage() {
             <button onClick={handleGoogleLogin} disabled={loading} style={{
               padding: '8px 18px', borderRadius: '8px',
               background: 'transparent', border: `1px solid ${C.border}`,
-              color: 'rgba(245,245,245,0.7)', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 500,
+              color: 'rgba(28,25,23,0.6)', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 500,
             }}>
               Iniciar sesión
             </button>
@@ -112,7 +112,7 @@ export default function LandingPage() {
               {!loading && <ArrowRight size={17} />}
             </button>
           </div>
-          <p style={{ fontSize: '0.78rem', color: 'rgba(245,245,245,0.25)', marginTop: '1rem' }}>
+          <p style={{ fontSize: '0.78rem', color: 'rgba(28,25,23,0.4)', marginTop: '1rem' }}>
             Gratis para comenzar · Sin tarjeta de crédito
           </p>
         </div>
@@ -123,7 +123,7 @@ export default function LandingPage() {
             background: 'rgba(255,255,255,0.03)',
             border: `1px solid ${C.border}`,
             borderRadius: '20px', padding: '1.5rem',
-            boxShadow: '0 40px 80px rgba(0,0,0,0.6)',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.08)',
           }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {[
@@ -136,10 +136,10 @@ export default function LandingPage() {
                   <div style={{
                     maxWidth: '88%', padding: '10px 14px',
                     borderRadius: msg.from === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                    background: msg.from === 'user' ? 'rgba(249,115,22,0.18)' : 'rgba(255,255,255,0.05)',
-                    border: `1px solid ${msg.from === 'user' ? 'rgba(249,115,22,0.35)' : C.border}`,
+                    background: msg.from === 'user' ? 'rgba(249,115,22,0.12)' : 'rgba(0,0,0,0.04)',
+                    border: `1px solid ${msg.from === 'user' ? 'rgba(249,115,22,0.3)' : C.border}`,
                     fontSize: '0.84rem', lineHeight: 1.5,
-                    color: msg.from === 'user' ? '#fed7aa' : 'rgba(245,245,245,0.85)',
+                    color: msg.from === 'user' ? '#c2410c' : 'rgba(28,25,23,0.8)',
                     whiteSpace: 'pre-line', textAlign: 'left',
                   }}>
                     {msg.text}
@@ -177,7 +177,7 @@ export default function LandingPage() {
                 icon: <MessageSquare size={22} />,
               },
               {
-                n: '02', color: '#ffffff',
+                n: '02', color: C.orange,
                 title: 'La IA lo entiende',
                 desc: 'FlowDesk detecta si es una tarea, un evento o una nota y lo clasifica solo. Sin comandos, sin estructuras especiales.',
                 icon: <Zap size={22} />,
@@ -195,15 +195,15 @@ export default function LandingPage() {
               }}>
                 <div style={{
                   position: 'absolute', top: '1.25rem', right: '1.5rem',
-                  fontSize: '3.5rem', fontWeight: 800, color: 'rgba(255,255,255,0.04)',
+                  fontSize: '3.5rem', fontWeight: 800, color: 'rgba(0,0,0,0.05)',
                   lineHeight: 1, letterSpacing: '-0.04em',
                 }}>
                   {step.n}
                 </div>
                 <div style={{
                   width: '48px', height: '48px', borderRadius: '12px',
-                  background: step.color === C.orange ? 'rgba(249,115,22,0.12)' : 'rgba(255,255,255,0.07)',
-                  border: `1px solid ${step.color === C.orange ? 'rgba(249,115,22,0.3)' : 'rgba(255,255,255,0.15)'}`,
+                  background: 'rgba(249,115,22,0.1)',
+                  border: '1px solid rgba(249,115,22,0.25)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: step.color, marginBottom: '1.25rem',
                 }}>
@@ -231,17 +231,17 @@ export default function LandingPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem' }}>
             {[
               { icon: <CheckSquare size={20} />, color: C.orange, title: 'Gestión de tareas', desc: 'Crea y completa pendientes desde el chat. La IA detecta cuando algo ya está listo.' },
-              { icon: <Calendar size={20} />, color: '#ffffff', title: 'Google Calendar', desc: 'Agenda reuniones y visitas de inspección directamente desde WhatsApp.' },
+              { icon: <Calendar size={20} />, color: C.orange, title: 'Google Calendar', desc: 'Agenda reuniones y visitas de inspección directamente desde WhatsApp.' },
               { icon: <BookOpen size={20} />, color: C.orange, title: 'Bitácora de obra', desc: 'Registra decisiones, observaciones y notas del día. Organizadas por fecha.' },
-              { icon: <Mic size={20} />, color: '#ffffff', title: 'Mensajes de voz', desc: 'Habla, FlowDesk transcribe y clasifica. Ideal cuando tienes las manos ocupadas.' },
+              { icon: <Mic size={20} />, color: C.orange, title: 'Mensajes de voz', desc: 'Habla, FlowDesk transcribe y clasifica. Ideal cuando tienes las manos ocupadas.' },
               { icon: <Zap size={20} />, color: C.orange, title: 'IA contextual', desc: 'Entiende frases naturales. No necesitas aprender comandos ni estructuras.' },
-              { icon: <MessageSquare size={20} />, color: '#ffffff', title: 'Solo WhatsApp', desc: 'Ninguna app nueva. Funciona donde ya te comunicas con tu equipo.' },
+              { icon: <MessageSquare size={20} />, color: C.orange, title: 'Solo WhatsApp', desc: 'Ninguna app nueva. Funciona donde ya te comunicas con tu equipo.' },
             ].map((f, i) => (
               <div key={i} style={{ padding: '1.4rem', background: C.surface, border: `1px solid ${C.border}`, borderRadius: '16px' }}>
                 <div style={{
                   width: '40px', height: '40px', borderRadius: '10px',
-                  background: f.color === C.orange ? 'rgba(249,115,22,0.12)' : 'rgba(255,255,255,0.06)',
-                  border: `1px solid ${f.color === C.orange ? 'rgba(249,115,22,0.3)' : 'rgba(255,255,255,0.12)'}`,
+                  background: 'rgba(249,115,22,0.1)',
+                  border: '1px solid rgba(249,115,22,0.25)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: f.color, marginBottom: '0.9rem',
                 }}>
@@ -274,7 +274,7 @@ export default function LandingPage() {
             </div>
             <blockquote style={{
               fontSize: 'clamp(1rem, 2.5vw, 1.2rem)', fontWeight: 500,
-              lineHeight: 1.75, color: 'rgba(245,245,245,0.9)',
+              lineHeight: 1.75, color: 'rgba(28,25,23,0.85)',
               marginBottom: '2rem', fontStyle: 'italic',
             }}>
               "En obra, el WhatsApp ya es la herramienta de comunicación principal — es lo que usamos para coordinar con cuadrillas, proveedores y jefatura mientras estamos en terreno. Entonces me pregunté: ¿por qué no organizar mi día desde ahí mismo? Creé FlowDesk porque necesitaba algo que se adaptara a ese ritmo, no al revés. Sin aprender apps nuevas, sin salir del flujo de trabajo."
@@ -335,7 +335,7 @@ export default function LandingPage() {
         maxWidth: '1120px', margin: '0 auto',
       }}>
         <LogoMark />
-        <p style={{ fontSize: '0.8rem', color: 'rgba(245,245,245,0.2)' }}>
+        <p style={{ fontSize: '0.8rem', color: 'rgba(28,25,23,0.4)' }}>
           © 2026 FlowDesk · Hecho para la obra, desde la obra.
         </p>
       </footer>
@@ -346,31 +346,39 @@ export default function LandingPage() {
 function LogoMark() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-      {/* Logo: casco moderno dentro de un marco calendario */}
-      <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect width="36" height="36" rx="9" fill="#f97316"/>
-        {/* Marco calendario superior */}
-        <rect x="7" y="11" width="22" height="17" rx="3" fill="white" fillOpacity="0.12"/>
-        <rect x="7" y="11" width="22" height="6" rx="3" fill="white" fillOpacity="0.2"/>
-        {/* Pines del calendario */}
-        <rect x="13" y="8" width="3" height="5" rx="1.5" fill="white"/>
-        <rect x="20" y="8" width="3" height="5" rx="1.5" fill="white"/>
-        {/* Casco: forma del casco */}
-        <path d="M12 24 C12 19.5 15 17 18 17 C21 17 24 19.5 24 24 Z" fill="white"/>
-        {/* Borde inferior del casco */}
-        <rect x="11" y="23.5" width="14" height="2" rx="1" fill="white"/>
-        {/* Línea central del casco */}
-        <path d="M18 17 L18 23.5" stroke="#f97316" strokeWidth="1.2" strokeLinecap="round"/>
-      </svg>
+      <LogoSVG size={36} />
       <div>
         <span style={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1 }}>
           Flow<span style={{ color: '#f97316' }}>Desk</span>
         </span>
-        <p style={{ fontSize: '0.62rem', color: 'rgba(245,245,245,0.35)', letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: '1px', lineHeight: 1 }}>
+        <p style={{ fontSize: '0.62rem', color: 'rgba(28,25,23,0.4)', letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: '1px', lineHeight: 1 }}>
           La agenda del constructor
         </p>
       </div>
     </div>
+  )
+}
+
+function LogoSVG({ size = 36 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="36" height="36" rx="8" fill="#f97316"/>
+      {/* Pines del calendario */}
+      <rect x="11" y="6" width="3.5" height="6" rx="1.75" stroke="white" strokeWidth="1.5"/>
+      <rect x="21.5" y="6" width="3.5" height="6" rx="1.75" stroke="white" strokeWidth="1.5"/>
+      {/* Marco calendario */}
+      <rect x="5" y="9" width="26" height="22" rx="3" stroke="white" strokeWidth="1.5"/>
+      {/* Línea divisoria del encabezado */}
+      <line x1="5" y1="15" x2="31" y2="15" stroke="white" strokeWidth="1.5"/>
+      {/* Domo del casco */}
+      <path d="M10.5 27C10.5 21 14 17.5 18 17.5C22 17.5 25.5 21 25.5 27" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+      {/* Ala del casco */}
+      <rect x="8" y="27" width="20" height="2.5" rx="1.25" stroke="white" strokeWidth="1.5"/>
+      {/* Ranuras de ventilación */}
+      <line x1="15" y1="20" x2="14.5" y2="26.5" stroke="white" strokeWidth="1" strokeLinecap="round"/>
+      <line x1="18" y1="18.5" x2="18" y2="26.5" stroke="white" strokeWidth="1" strokeLinecap="round"/>
+      <line x1="21" y1="20" x2="21.5" y2="26.5" stroke="white" strokeWidth="1" strokeLinecap="round"/>
+    </svg>
   )
 }
 
