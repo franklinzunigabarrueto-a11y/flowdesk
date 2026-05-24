@@ -109,7 +109,7 @@ export async function analyzeMessage(
   userName = '',
   hasImage = false
 ): Promise<MessageIntent> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
   const utcOffset = getUtcOffset(timezone)
 
   const now = new Date()
@@ -142,7 +142,7 @@ export async function completePendingItems(
   currentDate: string,
   timezone = 'America/Santiago'
 ): Promise<{ completed: IntentItem[]; stillPending: IntentItem[]; response: string }> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
   const utcOffset = getUtcOffset(timezone)
 
   const pendingSummary = pendingItems.map(item =>
@@ -191,7 +191,7 @@ Responde SOLO con JSON:
 }
 
 export async function analyzeImageForQuestion(imageBase64: string, mimeType: string): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
   const result = await model.generateContent([
     { inlineData: { data: imageBase64, mimeType } },
     `Eres un asistente de productividad para profesionales de construcción en Chile. El usuario envió esta foto sin texto.
@@ -212,7 +212,7 @@ Solo devuelve la pregunta, sin comentarios adicionales.`,
 }
 
 export async function transcribeAudio(audioBase64: string, mimeType: string): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
   const result = await model.generateContent([
     { inlineData: { data: audioBase64, mimeType } },
     'Transcribe este audio en español de Chile. Es probable que el hablante sea un profesional de construcción. Términos comunes: ITO (Inspección Técnica de Obra), HH (horas hombre), faena, hormigonado, moldajes, cuadrilla, topógrafo, cubicación, subcontrato, replanteo, partida, avance de obra. Transcribe con precisión, respetando siglas y términos técnicos. Solo devuelve el texto transcrito, sin comentarios.',
