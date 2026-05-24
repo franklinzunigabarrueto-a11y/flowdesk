@@ -2,7 +2,19 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { ArrowRight, Zap, MessageSquare, Calendar, CheckSquare, BookOpen, Mic, Star } from 'lucide-react'
+import { ArrowRight, MessageSquare, Calendar, CheckSquare, BookOpen, Mic, Star, Zap } from 'lucide-react'
+
+// Colores de construcción
+const C = {
+  orange: '#f97316',
+  orangeDark: '#c2410c',
+  orangeGlow: 'rgba(249,115,22,0.35)',
+  bg: '#0c0c0c',
+  surface: 'rgba(255,255,255,0.03)',
+  border: 'rgba(255,255,255,0.07)',
+  text: '#f5f5f5',
+  muted: 'rgba(245,245,245,0.4)',
+}
 
 export default function LandingPage() {
   const [loading, setLoading] = useState(false)
@@ -21,56 +33,35 @@ export default function LandingPage() {
   }
 
   return (
-    <div style={{ background: '#0a0a0f', minHeight: '100vh', color: '#f0f0f5', fontFamily: "'Inter', -apple-system, sans-serif" }}>
-      {/* Background gradients */}
+    <div style={{ background: C.bg, minHeight: '100vh', color: C.text, fontFamily: "'Inter', -apple-system, sans-serif" }}>
+      {/* Fondo */}
       <div style={{
         position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
-        background: 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(124,92,252,0.25) 0%, transparent 70%)',
+        background: 'radial-gradient(ellipse 70% 40% at 50% -10%, rgba(249,115,22,0.18) 0%, transparent 70%)',
       }} />
 
       {/* ── NAVBAR ── */}
       <nav style={{
         position: 'sticky', top: 0, zIndex: 50,
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-        background: 'rgba(10,10,15,0.85)',
+        borderBottom: `1px solid ${C.border}`,
+        background: 'rgba(12,12,12,0.88)',
         backdropFilter: 'blur(16px)',
       }}>
         <div style={{ maxWidth: '1120px', margin: '0 auto', padding: '0 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px' }}>
+          <LogoMark />
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '34px', height: '34px', borderRadius: '9px',
-              background: 'linear-gradient(135deg, #7c5cfc, #00e5cc)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            <button onClick={handleGoogleLogin} disabled={loading} style={{
+              padding: '8px 18px', borderRadius: '8px',
+              background: 'transparent', border: `1px solid ${C.border}`,
+              color: 'rgba(245,245,245,0.7)', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 500,
             }}>
-              <Zap size={17} color="white" strokeWidth={2.5} />
-            </div>
-            <span style={{ fontSize: '1.15rem', fontWeight: 700, letterSpacing: '-0.02em' }}>
-              Flow<span style={{ color: '#7c5cfc' }}>Desk</span>
-            </span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button
-              onClick={handleGoogleLogin}
-              disabled={loading}
-              style={{
-                padding: '8px 20px', borderRadius: '8px',
-                background: 'transparent', border: '1px solid rgba(255,255,255,0.12)',
-                color: 'rgba(240,240,245,0.8)', cursor: 'pointer',
-                fontSize: '0.875rem', fontWeight: 500,
-              }}
-            >
               Iniciar sesión
             </button>
-            <button
-              onClick={handleGoogleLogin}
-              disabled={loading}
-              style={{
-                padding: '8px 20px', borderRadius: '8px',
-                background: 'linear-gradient(135deg, #7c5cfc, #5b3fd4)',
-                border: 'none', color: 'white', cursor: 'pointer',
-                fontSize: '0.875rem', fontWeight: 600,
-              }}
-            >
+            <button onClick={handleGoogleLogin} disabled={loading} style={{
+              padding: '8px 18px', borderRadius: '8px',
+              background: C.orange, border: 'none',
+              color: 'white', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600,
+            }}>
               Comenzar gratis
             </button>
           </div>
@@ -84,87 +75,72 @@ export default function LandingPage() {
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: '7px',
             padding: '5px 14px', borderRadius: '100px',
-            background: 'rgba(124,92,252,0.12)',
-            border: '1px solid rgba(124,92,252,0.35)',
-            fontSize: '0.78rem', color: '#a78bfa',
-            marginBottom: '2rem', letterSpacing: '0.02em', fontWeight: 500
+            background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.3)',
+            fontSize: '0.78rem', color: C.orange,
+            marginBottom: '2rem', letterSpacing: '0.02em', fontWeight: 600,
           }}>
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#7c5cfc', display: 'inline-block' }} />
-            Productividad desde WhatsApp · Con IA
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: C.orange, display: 'inline-block' }} />
+            La agenda del constructor
           </div>
 
           <h1 style={{
-            fontSize: 'clamp(2.6rem, 6vw, 4.2rem)',
+            fontSize: 'clamp(2.5rem, 6vw, 4rem)',
             fontWeight: 800, lineHeight: 1.08,
             letterSpacing: '-0.04em', marginBottom: '1.5rem',
           }}>
-            Tu agenda y tareas,{' '}
-            <span style={{
-              background: 'linear-gradient(135deg, #7c5cfc 0%, #00e5cc 100%)',
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text'
-            }}>desde un mensaje</span>
+            Tu obra organizada,{' '}
+            <span style={{ color: C.orange }}>desde WhatsApp</span>
           </h1>
 
           <p style={{
-            fontSize: '1.125rem', color: 'rgba(240,240,245,0.55)',
-            lineHeight: 1.75, maxWidth: '580px', margin: '0 auto 2.5rem',
+            fontSize: '1.1rem', color: C.muted,
+            lineHeight: 1.75, maxWidth: '560px', margin: '0 auto 2.5rem',
           }}>
-            Escribe o graba un audio en WhatsApp y FlowDesk lo convierte en tareas, eventos de calendario o apuntes de diario — automáticamente.
+            Escribe o manda un audio mientras estás en terreno y FlowDesk lo convierte en tareas, eventos de calendario o apuntes — sin salir del WhatsApp que ya usas.
           </p>
 
-          {/* CTAs */}
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button
-              onClick={handleGoogleLogin}
-              disabled={loading}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: '10px',
-                padding: '14px 28px', borderRadius: '12px',
-                background: 'linear-gradient(135deg, #7c5cfc, #5b3fd4)',
-                border: 'none', color: 'white', cursor: 'pointer',
-                fontSize: '1rem', fontWeight: 600,
-                boxShadow: '0 0 40px rgba(124,92,252,0.35)',
-                transition: 'transform 0.15s, box-shadow 0.15s',
-              }}
-            >
+            <button onClick={handleGoogleLogin} disabled={loading} style={{
+              display: 'inline-flex', alignItems: 'center', gap: '10px',
+              padding: '14px 28px', borderRadius: '12px',
+              background: C.orange, border: 'none',
+              color: 'white', cursor: 'pointer', fontSize: '1rem', fontWeight: 600,
+              boxShadow: `0 0 40px ${C.orangeGlow}`,
+            }}>
               <GoogleIcon />
               {loading ? 'Conectando...' : 'Comenzar con Google'}
               {!loading && <ArrowRight size={17} />}
             </button>
           </div>
-          <p style={{ fontSize: '0.78rem', color: 'rgba(240,240,245,0.3)', marginTop: '1rem' }}>
+          <p style={{ fontSize: '0.78rem', color: 'rgba(245,245,245,0.25)', marginTop: '1rem' }}>
             Gratis para comenzar · Sin tarjeta de crédito
           </p>
         </div>
 
-        {/* Mock chat preview */}
-        <div style={{ maxWidth: '500px', margin: '4rem auto 0', position: 'relative' }}>
+        {/* Mock chat */}
+        <div style={{ maxWidth: '480px', margin: '4.5rem auto 0', position: 'relative' }}>
           <div style={{
             background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            border: `1px solid ${C.border}`,
             borderRadius: '20px', padding: '1.5rem',
-            boxShadow: '0 40px 80px rgba(0,0,0,0.5)',
+            boxShadow: '0 40px 80px rgba(0,0,0,0.6)',
           }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {[
-                { from: 'user', text: '🎙️ [Audio 0:08] — reunión de obra mañana a las 9am' },
-                { from: 'bot', text: '✅ Evento creado en Google Calendar\n📅 Reunión de obra — mañana 9:00 AM' },
-                { from: 'user', text: 'Crear tarea: revisar planos del segundo piso' },
-                { from: 'bot', text: '📋 Tarea creada: «Revisar planos del segundo piso»' },
+                { from: 'user', text: '🎙️ [Audio 0:11] — reunión con la ITO el viernes a las 10am en obra' },
+                { from: 'bot', text: '✅ Evento creado en Google Calendar\n📅 Reunión ITO — viernes 10:00 AM' },
+                { from: 'user', text: 'Pendiente: solicitar certificado de hormigón al laboratorio' },
+                { from: 'bot', text: '📋 Tarea creada: «Solicitar certificado de hormigón al laboratorio»' },
               ].map((msg, i) => (
-                <div key={i} style={{
-                  display: 'flex',
-                  justifyContent: msg.from === 'user' ? 'flex-end' : 'flex-start',
-                }}>
+                <div key={i} style={{ display: 'flex', justifyContent: msg.from === 'user' ? 'flex-end' : 'flex-start' }}>
                   <div style={{
-                    maxWidth: '85%', padding: '10px 14px',
+                    maxWidth: '88%', padding: '10px 14px',
                     borderRadius: msg.from === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                    background: msg.from === 'user' ? 'rgba(124,92,252,0.25)' : 'rgba(255,255,255,0.06)',
-                    border: `1px solid ${msg.from === 'user' ? 'rgba(124,92,252,0.4)' : 'rgba(255,255,255,0.08)'}`,
-                    fontSize: '0.85rem', lineHeight: 1.5,
-                    color: msg.from === 'user' ? '#c4b5fd' : 'rgba(240,240,245,0.85)',
-                    whiteSpace: 'pre-line',
-                    textAlign: 'left',
+                    background: msg.from === 'user' ? 'rgba(249,115,22,0.18)' : 'rgba(255,255,255,0.05)',
+                    border: `1px solid ${msg.from === 'user' ? 'rgba(249,115,22,0.35)' : C.border}`,
+                    fontSize: '0.84rem', lineHeight: 1.5,
+                    color: msg.from === 'user' ? '#fed7aa' : 'rgba(245,245,245,0.85)',
+                    whiteSpace: 'pre-line', textAlign: 'left',
                   }}>
                     {msg.text}
                   </div>
@@ -172,12 +148,11 @@ export default function LandingPage() {
               ))}
             </div>
           </div>
-          {/* Glow under chat */}
           <div style={{
-            position: 'absolute', bottom: '-40px', left: '50%', transform: 'translateX(-50%)',
-            width: '60%', height: '80px',
-            background: 'radial-gradient(ellipse, rgba(124,92,252,0.3) 0%, transparent 70%)',
-            filter: 'blur(20px)', pointerEvents: 'none',
+            position: 'absolute', bottom: '-30px', left: '50%', transform: 'translateX(-50%)',
+            width: '55%', height: '60px',
+            background: `radial-gradient(ellipse, ${C.orangeGlow} 0%, transparent 70%)`,
+            filter: 'blur(15px)', pointerEvents: 'none',
           }} />
         </div>
       </section>
@@ -186,65 +161,56 @@ export default function LandingPage() {
       <section style={{ position: 'relative', zIndex: 10, padding: '6rem 2rem' }}>
         <div style={{ maxWidth: '1120px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
-            <p style={{ fontSize: '0.78rem', fontWeight: 600, letterSpacing: '0.1em', color: '#7c5cfc', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+            <p style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.12em', color: C.orange, textTransform: 'uppercase', marginBottom: '0.75rem' }}>
               Cómo funciona
             </p>
-            <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', fontWeight: 700, letterSpacing: '-0.03em' }}>
+            <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 700, letterSpacing: '-0.03em' }}>
               Tres pasos, cero fricción
             </h2>
           </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
             {[
               {
-                n: '01', color: '#7c5cfc',
+                n: '01', color: C.orange,
                 title: 'Escribe o graba',
-                desc: 'Desde WhatsApp, escribe lo que necesitas hacer o manda un audio. Sin apps nuevas, sin aprender nada.',
+                desc: 'Desde WhatsApp, donde ya estás. Un texto rápido o un audio mientras caminas la obra — como siempre lo has hecho.',
                 icon: <MessageSquare size={22} />,
               },
               {
-                n: '02', color: '#00e5cc',
+                n: '02', color: '#ffffff',
                 title: 'La IA lo entiende',
-                desc: 'FlowDesk detecta si es una tarea, un evento o una nota de diario, y lo clasifica automáticamente.',
+                desc: 'FlowDesk detecta si es una tarea, un evento o una nota y lo clasifica solo. Sin comandos, sin estructuras especiales.',
                 icon: <Zap size={22} />,
               },
               {
-                n: '03', color: '#f59e0b',
+                n: '03', color: C.orange,
                 title: 'Se sincroniza todo',
-                desc: 'Tu tarea aparece en el panel, el evento va a Google Calendar y el audio queda transcrito en tu diario.',
+                desc: 'El evento va a Google Calendar, la tarea aparece en tu panel y el audio queda transcrito. Todo en su lugar.',
                 icon: <Calendar size={22} />,
               },
             ].map((step) => (
               <div key={step.n} style={{
-                padding: '2rem',
-                background: 'rgba(255,255,255,0.025)',
-                border: '1px solid rgba(255,255,255,0.07)',
-                borderRadius: '20px',
-                position: 'relative',
-                overflow: 'hidden',
+                padding: '2rem', background: C.surface,
+                border: `1px solid ${C.border}`, borderRadius: '20px', position: 'relative', overflow: 'hidden',
               }}>
                 <div style={{
-                  position: 'absolute', top: '1.5rem', right: '1.5rem',
-                  fontSize: '3.5rem', fontWeight: 800, color: 'rgba(255,255,255,0.03)',
+                  position: 'absolute', top: '1.25rem', right: '1.5rem',
+                  fontSize: '3.5rem', fontWeight: 800, color: 'rgba(255,255,255,0.04)',
                   lineHeight: 1, letterSpacing: '-0.04em',
                 }}>
                   {step.n}
                 </div>
                 <div style={{
                   width: '48px', height: '48px', borderRadius: '12px',
-                  background: `${step.color}18`,
-                  border: `1px solid ${step.color}35`,
+                  background: step.color === C.orange ? 'rgba(249,115,22,0.12)' : 'rgba(255,255,255,0.07)',
+                  border: `1px solid ${step.color === C.orange ? 'rgba(249,115,22,0.3)' : 'rgba(255,255,255,0.15)'}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: step.color, marginBottom: '1.25rem'
+                  color: step.color, marginBottom: '1.25rem',
                 }}>
                   {step.icon}
                 </div>
-                <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '0.6rem' }}>
-                  {step.title}
-                </h3>
-                <p style={{ fontSize: '0.875rem', color: 'rgba(240,240,245,0.5)', lineHeight: 1.65 }}>
-                  {step.desc}
-                </p>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '0.6rem' }}>{step.title}</h3>
+                <p style={{ fontSize: '0.875rem', color: C.muted, lineHeight: 1.65 }}>{step.desc}</p>
               </div>
             ))}
           </div>
@@ -255,39 +221,34 @@ export default function LandingPage() {
       <section style={{ position: 'relative', zIndex: 10, padding: '2rem 2rem 6rem' }}>
         <div style={{ maxWidth: '1120px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
-            <p style={{ fontSize: '0.78rem', fontWeight: 600, letterSpacing: '0.1em', color: '#7c5cfc', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+            <p style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.12em', color: C.orange, textTransform: 'uppercase', marginBottom: '0.75rem' }}>
               Características
             </p>
-            <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', fontWeight: 700, letterSpacing: '-0.03em' }}>
-              Todo lo que necesitas
+            <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 700, letterSpacing: '-0.03em' }}>
+              Todo lo que necesitas en obra
             </h2>
           </div>
-
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem' }}>
             {[
-              { icon: <CheckSquare size={20} />, color: '#00e5cc', title: 'Gestión de tareas', desc: 'Crea y completa tareas desde el chat. La IA detecta cuando algo está listo.' },
-              { icon: <Calendar size={20} />, color: '#f59e0b', title: 'Google Calendar', desc: 'Agenda eventos directamente desde WhatsApp. Todo sincronizado.' },
-              { icon: <BookOpen size={20} />, color: '#22c55e', title: 'Diario personal', desc: 'Guarda reflexiones y apuntes con texto o audio. Organizados por fecha.' },
-              { icon: <Mic size={20} />, color: '#ef4444', title: 'Mensajes de voz', desc: 'Habla, FlowDesk transcribe y clasifica. Sin escribir, sin esfuerzo.' },
-              { icon: <Zap size={20} />, color: '#7c5cfc', title: 'IA contextual', desc: 'Entiende frases naturales y detecta intenciones sin comandos especiales.' },
-              { icon: <MessageSquare size={20} />, color: '#3b82f6', title: 'Solo WhatsApp', desc: 'Ninguna app nueva que aprender. Funciona donde ya estás.' },
+              { icon: <CheckSquare size={20} />, color: C.orange, title: 'Gestión de tareas', desc: 'Crea y completa pendientes desde el chat. La IA detecta cuando algo ya está listo.' },
+              { icon: <Calendar size={20} />, color: '#ffffff', title: 'Google Calendar', desc: 'Agenda reuniones y visitas de inspección directamente desde WhatsApp.' },
+              { icon: <BookOpen size={20} />, color: C.orange, title: 'Bitácora de obra', desc: 'Registra decisiones, observaciones y notas del día. Organizadas por fecha.' },
+              { icon: <Mic size={20} />, color: '#ffffff', title: 'Mensajes de voz', desc: 'Habla, FlowDesk transcribe y clasifica. Ideal cuando tienes las manos ocupadas.' },
+              { icon: <Zap size={20} />, color: C.orange, title: 'IA contextual', desc: 'Entiende frases naturales. No necesitas aprender comandos ni estructuras.' },
+              { icon: <MessageSquare size={20} />, color: '#ffffff', title: 'Solo WhatsApp', desc: 'Ninguna app nueva. Funciona donde ya te comunicas con tu equipo.' },
             ].map((f, i) => (
-              <div key={i} style={{
-                padding: '1.4rem',
-                background: 'rgba(255,255,255,0.025)',
-                border: '1px solid rgba(255,255,255,0.07)',
-                borderRadius: '16px',
-              }}>
+              <div key={i} style={{ padding: '1.4rem', background: C.surface, border: `1px solid ${C.border}`, borderRadius: '16px' }}>
                 <div style={{
                   width: '40px', height: '40px', borderRadius: '10px',
-                  background: `${f.color}15`, border: `1px solid ${f.color}30`,
+                  background: f.color === C.orange ? 'rgba(249,115,22,0.12)' : 'rgba(255,255,255,0.06)',
+                  border: `1px solid ${f.color === C.orange ? 'rgba(249,115,22,0.3)' : 'rgba(255,255,255,0.12)'}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: f.color, marginBottom: '0.9rem'
+                  color: f.color, marginBottom: '0.9rem',
                 }}>
                   {f.icon}
                 </div>
                 <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.4rem' }}>{f.title}</h3>
-                <p style={{ fontSize: '0.82rem', color: 'rgba(240,240,245,0.45)', lineHeight: 1.6 }}>{f.desc}</p>
+                <p style={{ fontSize: '0.82rem', color: C.muted, lineHeight: 1.6 }}>{f.desc}</p>
               </div>
             ))}
           </div>
@@ -296,46 +257,33 @@ export default function LandingPage() {
 
       {/* ── TESTIMONIAL ── */}
       <section style={{ position: 'relative', zIndex: 10, padding: '2rem 2rem 6rem' }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+        <div style={{ maxWidth: '780px', margin: '0 auto' }}>
           <div style={{
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: '24px',
-            padding: 'clamp(2rem, 5vw, 3.5rem)',
-            position: 'relative',
-            overflow: 'hidden',
+            background: C.surface, border: `1px solid ${C.border}`,
+            borderRadius: '24px', padding: 'clamp(2rem, 5vw, 3.5rem)',
+            position: 'relative', overflow: 'hidden',
           }}>
-            {/* Glow */}
             <div style={{
-              position: 'absolute', top: '-60px', right: '-60px',
-              width: '200px', height: '200px',
-              background: 'radial-gradient(ellipse, rgba(124,92,252,0.2) 0%, transparent 70%)',
+              position: 'absolute', top: '-80px', right: '-80px',
+              width: '220px', height: '220px',
+              background: `radial-gradient(ellipse, rgba(249,115,22,0.15) 0%, transparent 70%)`,
               pointerEvents: 'none',
             }} />
-
-            {/* Stars */}
             <div style={{ display: 'flex', gap: '4px', marginBottom: '1.5rem' }}>
-              {[...Array(5)].map((_, i) => (
-                <Star key={i} size={16} fill="#f59e0b" color="#f59e0b" />
-              ))}
+              {[...Array(5)].map((_, i) => <Star key={i} size={16} fill={C.orange} color={C.orange} />)}
             </div>
-
             <blockquote style={{
-              fontSize: 'clamp(1.05rem, 2.5vw, 1.3rem)',
-              fontWeight: 500, lineHeight: 1.7,
-              color: 'rgba(240,240,245,0.9)',
-              marginBottom: '2rem',
-              fontStyle: 'italic',
+              fontSize: 'clamp(1rem, 2.5vw, 1.2rem)', fontWeight: 500,
+              lineHeight: 1.75, color: 'rgba(245,245,245,0.9)',
+              marginBottom: '2rem', fontStyle: 'italic',
             }}>
               "En obra, el WhatsApp ya es la herramienta de comunicación principal — es lo que usamos para coordinar con cuadrillas, proveedores y jefatura mientras estamos en terreno. Entonces me pregunté: ¿por qué no organizar mi día desde ahí mismo? Creé FlowDesk porque necesitaba algo que se adaptara a ese ritmo, no al revés. Sin aprender apps nuevas, sin salir del flujo de trabajo."
             </blockquote>
-
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <div style={{
                 width: '56px', height: '56px', borderRadius: '50%',
-                background: 'linear-gradient(135deg, #7c5cfc, #00e5cc)',
                 flexShrink: 0, overflow: 'hidden',
-                border: '2px solid rgba(124,92,252,0.5)',
+                border: `2px solid rgba(249,115,22,0.5)`,
               }}>
                 <img
                   src="/franklin.jpg"
@@ -346,9 +294,7 @@ export default function LandingPage() {
               </div>
               <div>
                 <p style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '2px' }}>Franklin Zuñiga</p>
-                <p style={{ fontSize: '0.82rem', color: 'rgba(240,240,245,0.45)' }}>
-                  Ingeniero Constructor · Creador de FlowDesk
-                </p>
+                <p style={{ fontSize: '0.82rem', color: C.muted }}>Ingeniero Constructor · Creador de FlowDesk</p>
               </div>
             </div>
           </div>
@@ -357,33 +303,21 @@ export default function LandingPage() {
 
       {/* ── CTA FINAL ── */}
       <section style={{ position: 'relative', zIndex: 10, padding: '2rem 2rem 8rem', textAlign: 'center' }}>
-        <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-          <h2 style={{
-            fontSize: 'clamp(1.8rem, 4vw, 2.6rem)',
-            fontWeight: 800, letterSpacing: '-0.03em',
-            marginBottom: '1.25rem', lineHeight: 1.15,
-          }}>
+        <div style={{ maxWidth: '580px', margin: '0 auto' }}>
+          <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: '1.25rem', lineHeight: 1.15 }}>
             Empieza hoy,{' '}
-            <span style={{
-              background: 'linear-gradient(135deg, #7c5cfc, #00e5cc)',
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text'
-            }}>gratis</span>
+            <span style={{ color: C.orange }}>gratis</span>
           </h2>
-          <p style={{ color: 'rgba(240,240,245,0.45)', fontSize: '1rem', marginBottom: '2.5rem', lineHeight: 1.7 }}>
-            Solo necesitas Google y WhatsApp. En menos de un minuto ya puedes empezar a organizar tu día.
+          <p style={{ color: C.muted, fontSize: '1rem', marginBottom: '2.5rem', lineHeight: 1.7 }}>
+            Solo necesitas Google y WhatsApp. En menos de un minuto ya puedes empezar a organizar tu día de obra.
           </p>
-          <button
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: '10px',
-              padding: '15px 32px', borderRadius: '14px',
-              background: 'linear-gradient(135deg, #7c5cfc, #5b3fd4)',
-              border: 'none', color: 'white', cursor: 'pointer',
-              fontSize: '1rem', fontWeight: 600,
-              boxShadow: '0 0 50px rgba(124,92,252,0.4)',
-            }}
-          >
+          <button onClick={handleGoogleLogin} disabled={loading} style={{
+            display: 'inline-flex', alignItems: 'center', gap: '10px',
+            padding: '15px 32px', borderRadius: '14px',
+            background: C.orange, border: 'none',
+            color: 'white', cursor: 'pointer', fontSize: '1rem', fontWeight: 600,
+            boxShadow: `0 0 50px ${C.orangeGlow}`,
+          }}>
             <GoogleIcon />
             {loading ? 'Conectando...' : 'Comenzar con Google'}
             {!loading && <ArrowRight size={17} />}
@@ -394,28 +328,48 @@ export default function LandingPage() {
       {/* ── FOOTER ── */}
       <footer style={{
         position: 'relative', zIndex: 10,
-        borderTop: '1px solid rgba(255,255,255,0.06)',
+        borderTop: `1px solid ${C.border}`,
         padding: '2rem',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         flexWrap: 'wrap', gap: '1rem',
         maxWidth: '1120px', margin: '0 auto',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{
-            width: '26px', height: '26px', borderRadius: '6px',
-            background: 'linear-gradient(135deg, #7c5cfc, #00e5cc)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}>
-            <Zap size={13} color="white" strokeWidth={2.5} />
-          </div>
-          <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>
-            Flow<span style={{ color: '#7c5cfc' }}>Desk</span>
-          </span>
-        </div>
-        <p style={{ fontSize: '0.8rem', color: 'rgba(240,240,245,0.25)' }}>
-          © 2025 FlowDesk · Hecho con intención, no con ruido.
+        <LogoMark />
+        <p style={{ fontSize: '0.8rem', color: 'rgba(245,245,245,0.2)' }}>
+          © 2025 FlowDesk · Hecho para la obra, desde la obra.
         </p>
       </footer>
+    </div>
+  )
+}
+
+function LogoMark() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      {/* Logo: casco moderno dentro de un marco calendario */}
+      <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="36" height="36" rx="9" fill="#f97316"/>
+        {/* Marco calendario superior */}
+        <rect x="7" y="11" width="22" height="17" rx="3" fill="white" fillOpacity="0.12"/>
+        <rect x="7" y="11" width="22" height="6" rx="3" fill="white" fillOpacity="0.2"/>
+        {/* Pines del calendario */}
+        <rect x="13" y="8" width="3" height="5" rx="1.5" fill="white"/>
+        <rect x="20" y="8" width="3" height="5" rx="1.5" fill="white"/>
+        {/* Casco: forma del casco */}
+        <path d="M12 24 C12 19.5 15 17 18 17 C21 17 24 19.5 24 24 Z" fill="white"/>
+        {/* Borde inferior del casco */}
+        <rect x="11" y="23.5" width="14" height="2" rx="1" fill="white"/>
+        {/* Línea central del casco */}
+        <path d="M18 17 L18 23.5" stroke="#f97316" strokeWidth="1.2" strokeLinecap="round"/>
+      </svg>
+      <div>
+        <span style={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1 }}>
+          Flow<span style={{ color: '#f97316' }}>Desk</span>
+        </span>
+        <p style={{ fontSize: '0.62rem', color: 'rgba(245,245,245,0.35)', letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: '1px', lineHeight: 1 }}>
+          La agenda del constructor
+        </p>
+      </div>
     </div>
   )
 }
