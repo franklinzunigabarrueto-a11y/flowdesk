@@ -192,7 +192,7 @@ export async function POST(request: Request) {
     // ── Flujo normal ──
     let intent
     try {
-      intent = await analyzeMessage(textContent, today, userTimezone)
+      intent = await analyzeMessage(textContent, today, userTimezone, user.name || '')
     } catch (aiError: any) {
       const isRateLimit = aiError?.message?.includes('429') || aiError?.status === 429
       const msg = isRateLimit

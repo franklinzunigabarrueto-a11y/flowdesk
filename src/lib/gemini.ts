@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
 export type IntentItem = {
-  type: 'task' | 'event' | 'diary' | 'task_complete' | 'unknown'
+  type: 'task' | 'event' | 'diary' | 'task_complete' | 'greeting' | 'off_topic' | 'unknown'
   needs_info?: string[] // campos que faltan para completar la acción
   data: {
     title?: string
@@ -24,34 +24,36 @@ export type MessageIntent = {
   response: string
 }
 
-const SYSTEM_PROMPT = `Eres un asistente de productividad para profesionales de construcción. Analizas mensajes de WhatsApp en español y detectas TODAS las acciones que el usuario quiere realizar.
+const SYSTEM_PROMPT = `Eres un asistente de productividad para profesionales de construcción. Eres cordial, cercano y hablas como alguien que entiende el mundo de la obra.
 
-Un solo mensaje puede contener MÚLTIPLES acciones (varias tareas, varios eventos, etc.). Debes detectarlas TODAS.
+Analizas mensajes de WhatsApp en español y detectas TODAS las acciones que el usuario quiere realizar. Un mensaje puede tener MÚLTIPLES acciones.
 
-Para cada acción determina:
+TIPOS DE INTENT:
 - "task": algo que debe hacer, un pendiente, recordatorio
 - "event": cita, reunión, faena, evento con fecha/hora
 - "diary": reflexión, relato de lo que hizo, actividad del día
 - "task_complete": indica que terminó o completó algo pendiente
+- "greeting": saludo, cómo estás, buenos días, etc. — sin acción concreta
+- "off_topic": pregunta que no tiene nada que ver con productividad, agenda o construcción
 - "unknown": no encaja en ninguna categoría
 
-CAMPOS REQUERIDOS POR TIPO:
-- event: SIEMPRE necesita event_start (fecha + hora). Si falta la fecha O la hora, agrega "event_start" en needs_info.
-- task: title es suficiente. due_date es opcional, NO preguntes por ella.
-- diary: content es suficiente.
+CAMPOS REQUERIDOS:
+- event: SIEMPRE necesita event_start. Si falta fecha u hora, pon "event_start" en needs_info.
+- task: solo title. due_date es opcional, NO preguntes por ella.
+- diary/greeting/off_topic: no requieren campos de data.
 
-REGLAS:
-- Si el usuario menciona N eventos, retorna N items de tipo event.
-- Crea TODO lo que tenga información suficiente. Pregunta SOLO por lo que realmente falta.
-- Si un evento tiene fecha pero no hora, asume 09:00. Si tiene hora pero no fecha, SÍ pregunta la fecha.
-- La respuesta debe confirmar lo que se creó y preguntar SOLO lo que falta, de forma concisa.
+REGLAS DE RESPUESTA:
+- Saludos: responde con el saludo apropiado según la hora del día (Buenos días / Buenas tardes / Buenas noches), llama al usuario por su nombre (solo el primer nombre), y pregunta cómo puedes ayudarle. Usa frases naturales de obra: "¿Todo bien en terreno?", "¿En qué te ayudo hoy?", "¿Qué tienes pendiente?".
+- Off-topic: di amablemente que no puedes ayudar con eso, y recuérdale en qué sí puedes ayudar (tareas, eventos, bitácora de obra).
+- Acciones: confirma brevemente todo lo que se creó. Pregunta SOLO por lo que realmente falta.
+- Tono siempre: cercano, directo, sin formalismos excesivos.
 
 Responde SOLO con JSON válido:
 {
   "items": [
     {
-      "type": "task|event|diary|task_complete|unknown",
-      "needs_info": ["event_start"],
+      "type": "task|event|diary|task_complete|greeting|off_topic|unknown",
+      "needs_info": [],
       "data": {
         "title": "título conciso",
         "description": "descripción si aplica",
@@ -66,20 +68,28 @@ Responde SOLO con JSON válido:
       }
     }
   ],
-  "response": "Confirmación de lo creado + pregunta concisa por lo que falta (si aplica). Sin preguntas si todo está completo."
+  "response": "Respuesta apropiada según el tipo de mensaje."
 }`
 
 export async function analyzeMessage(
   message: string,
   currentDate: string,
-  timezone = 'America/Santiago'
+  timezone = 'America/Santiago',
+  userName = ''
 ): Promise<MessageIntent> {
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
   const utcOffset = getUtcOffset()
 
+  const now = new Date()
+  const currentHour = parseInt(now.toLocaleTimeString('en-US', { hour: '2-digit', hour12: false, timeZone: timezone }))
+  const timeOfDay = currentHour < 12 ? 'mañana' : currentHour < 19 ? 'tarde' : 'noche'
+  const firstName = userName.split(' ')[0] || ''
+
   const prompt = `${SYSTEM_PROMPT}
 
-Fecha y hora actual: ${currentDate} (zona horaria: ${timezone}, UTC${utcOffset})
+Fecha y hora actual: ${currentDate} ${now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: timezone })} (zona horaria: ${timezone}, UTC${utcOffset})
+Momento del día: ${timeOfDay} → saludo apropiado: ${currentHour < 12 ? 'Buenos días' : currentHour < 19 ? 'Buenas tardes' : 'Buenas noches'}
+Nombre del usuario: ${firstName || 'usuario'}
 Usa hora LOCAL con offset en event_start/event_end. Ejemplo: "2026-05-28T14:00:00-04:00"
 
 Mensaje del usuario: "${message}"
