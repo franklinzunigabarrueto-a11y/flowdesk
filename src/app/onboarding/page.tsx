@@ -1,0 +1,226 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase'
+import { Phone, CheckCircle, ArrowRight, Zap } from 'lucide-react'
+
+export default function OnboardingPage() {
+  const [step, setStep] = useState(1)
+  const [phone, setPhone] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [user, setUser] = useState<{ name: string; email: string } | null>(null)
+  const router = useRouter()
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) { router.push('/'); return }
+      setUser({
+        name: data.user.user_metadata?.full_name || 'Usuario',
+        email: data.user.email || ''
+      })
+    })
+  }, [])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!phone.trim()) return
+    setLoading(true)
+
+    try {
+      const supabase = createClient()
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      if (!authUser) throw new Error('No autenticado')
+
+      await supabase.from('users').upsert({
+        id: authUser.id,
+        email: authUser.email,
+        name: authUser.user_metadata?.full_name,
+        avatar_url: authUser.user_metadata?.avatar_url,
+        whatsapp_number: phone.replace(/\D/g, ''),
+        onboarding_completed: true,
+      })
+
+      await fetch('/api/whatsapp/welcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phone.replace(/\D/g, ''), name: user?.name }),
+      })
+
+      setStep(3)
+      setTimeout(() => router.push('/dashboard'), 2500)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: 'var(--background)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '2rem',
+      position: 'relative'
+    }}>
+      {/* Fondo */}
+      <div style={{
+        position: 'fixed', inset: 0,
+        background: 'radial-gradient(ellipse at 50% 50%, rgba(124,92,252,0.1) 0%, transparent 70%)',
+        pointerEvents: 'none'
+      }} />
+
+      <div style={{
+        width: '100%', maxWidth: '440px',
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: '24px',
+        padding: '2.5rem',
+        position: 'relative', zIndex: 10
+      }}>
+        {/* Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '2rem' }}>
+          <div style={{
+            width: '36px', height: '36px', borderRadius: '10px',
+            background: 'linear-gradient(135deg, var(--primary), var(--accent))',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}>
+            <Zap size={20} color="white" />
+          </div>
+          <span style={{ fontSize: '1.2rem', fontWeight: 700 }}>
+            Flow<span style={{ color: 'var(--primary)' }}>Desk</span>
+          </span>
+        </div>
+
+        {/* Progress */}
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '2rem' }}>
+          {[1, 2, 3].map(s => (
+            <div key={s} style={{
+              flex: 1, height: '4px', borderRadius: '2px',
+              background: s <= step ? 'var(--primary)' : 'var(--border)',
+              transition: 'background 0.4s'
+            }} />
+          ))}
+        </div>
+
+        {step === 1 && (
+          <div style={{ animation: 'fadeIn 0.4s ease' }}>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+              ¡Bienvenido, {user?.name?.split(' ')[0]}! 👋
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2rem', lineHeight: 1.6 }}>
+              Tu cuenta de Google está conectada. Ahora vamos a configurar tu número de WhatsApp para que puedas gestionar todo desde el chat.
+            </p>
+            <div style={{
+              padding: '1rem',
+              background: 'rgba(124,92,252,0.1)',
+              border: '1px solid rgba(124,92,252,0.2)',
+              borderRadius: '12px',
+              marginBottom: '2rem'
+            }}>
+              <p style={{ fontSize: '0.85rem', color: 'var(--primary)', lineHeight: 1.6 }}>
+                ✅ Google Calendar conectado<br/>
+                📧 {user?.email}
+              </p>
+            </div>
+            <button
+              onClick={() => setStep(2)}
+              style={{
+                width: '100%', padding: '14px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
+                border: 'none', color: 'white', cursor: 'pointer',
+                fontSize: '1rem', fontWeight: 600,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+              }}
+            >
+              Continuar <ArrowRight size={18} />
+            </button>
+          </div>
+        )}
+
+        {step === 2 && (
+          <form onSubmit={handleSubmit} style={{ animation: 'fadeIn 0.4s ease' }}>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+              Tu número de WhatsApp
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2rem', lineHeight: 1.6 }}>
+              Ingresa tu número con código de país. Nuestro bot te enviará un mensaje de bienvenida.
+            </p>
+
+            <div style={{ position: 'relative', marginBottom: '1.5rem' }}>
+              <div style={{
+                position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)',
+                color: 'var(--text-muted)'
+              }}>
+                <Phone size={18} />
+              </div>
+              <input
+                type="tel"
+                placeholder="+56 9 1234 5678"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                required
+                style={{
+                  width: '100%', padding: '14px 14px 14px 46px',
+                  background: 'var(--background)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '12px',
+                  color: 'var(--foreground)',
+                  fontSize: '1rem',
+                  outline: 'none',
+                  transition: 'border-color 0.2s'
+                }}
+              />
+            </div>
+
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+              Incluye el código de país. Ej: +56 para Chile, +52 para México, +54 para Argentina.
+            </p>
+
+            <button
+              type="submit"
+              disabled={loading || !phone.trim()}
+              style={{
+                width: '100%', padding: '14px',
+                borderRadius: '12px',
+                background: phone.trim() ? 'linear-gradient(135deg, var(--primary), var(--primary-dark))' : 'var(--border)',
+                border: 'none', color: 'white', cursor: phone.trim() ? 'pointer' : 'not-allowed',
+                fontSize: '1rem', fontWeight: 600,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                transition: 'all 0.2s'
+              }}
+            >
+              {loading ? 'Enviando mensaje...' : 'Conectar WhatsApp'}
+              {!loading && <ArrowRight size={18} />}
+            </button>
+          </form>
+        )}
+
+        {step === 3 && (
+          <div style={{ textAlign: 'center', animation: 'fadeIn 0.4s ease', padding: '1rem 0' }}>
+            <div style={{
+              width: '64px', height: '64px', borderRadius: '50%',
+              background: 'rgba(34,197,94,0.1)',
+              border: '1px solid rgba(34,197,94,0.3)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 1.5rem',
+              animation: 'pulse-glow 2s infinite'
+            }}>
+              <CheckCircle size={32} color="#22c55e" />
+            </div>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.75rem' }}>
+              ¡Todo listo! 🎉
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6 }}>
+              Revisa tu WhatsApp, te hemos enviado un mensaje de bienvenida.<br/>
+              Redirigiendo a tu panel...
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
