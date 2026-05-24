@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
 export type IntentItem = {
-  type: 'task' | 'event' | 'edit_event' | 'also_calendar' | 'pending_image' | 'diary' | 'task_complete' | 'greeting' | 'off_topic' | 'unknown'
+  type: 'task' | 'event' | 'edit_event' | 'also_calendar' | 'pending_image' | 'needs_image' | 'awaiting_image' | 'diary' | 'task_complete' | 'greeting' | 'off_topic' | 'unknown'
   needs_info?: string[] // campos que faltan para completar la acción
   data: {
     title?: string
@@ -49,6 +49,7 @@ TIPOS DE INTENT:
 - "event": cita, reunión, faena, actividad con fecha/hora
 - "edit_event": modificar, cambiar, corregir, actualizar el último evento creado o uno mencionado
 - "also_calendar": el usuario quiere agregar al calendario el último ítem creado, sin dar información nueva. Usar cuando dice "agrégala al calendario", "ponla también en el calendario", "agrégalo como evento", etc. Si menciona una hora en este mensaje, inclúyela en event_start; si no hay hora, pon "event_start" en needs_info.
+- "needs_image": el mensaje hace referencia a una imagen o adjunto que NO está presente en este mensaje (palabras como "adjunta", "la foto", "la imagen", "como se ve en la foto", "según la imagen", etc.). Incluye en data la información del evento/tarea implícito (title, event_start si aplica, priority, due_date, etc.).
 - "diary": reflexión, relato de actividades del día
 - "task_complete": indica que terminó o completó algo pendiente
 - "greeting": saludo sin acción concreta
@@ -61,6 +62,7 @@ CAMPOS REQUERIDOS:
 - event: SIEMPRE necesita event_start. Si falta fecha u hora, pon "event_start" en needs_info.
 - edit_event: usa "title" para el nuevo título (si cambia), "event_start" para la nueva hora/fecha (si cambia). No requiere needs_info.
 - also_calendar: no requiere datos extra (el sistema buscará el último ítem). Solo incluye event_start si el usuario lo menciona en este mensaje.
+- needs_image: incluye title y event_start/due_date si los hay. No requiere needs_info (el sistema pedirá la imagen).
 - task: solo title. due_date es opcional.
 - diary/greeting/off_topic: no requieren data.
 
@@ -104,7 +106,8 @@ export async function analyzeMessage(
   message: string,
   currentDate: string,
   timezone = 'America/Santiago',
-  userName = ''
+  userName = '',
+  hasImage = false
 ): Promise<MessageIntent> {
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
   const utcOffset = getUtcOffset(timezone)
@@ -120,6 +123,7 @@ Fecha y hora actual: ${currentDate} ${now.toLocaleTimeString('es-ES', { hour: '2
 Momento del día: ${timeOfDay} → saludo apropiado: ${currentHour < 12 ? 'Buenos días' : currentHour < 19 ? 'Buenas tardes' : 'Buenas noches'}
 Nombre del usuario: ${firstName || 'usuario'}
 Usa hora LOCAL con offset en event_start/event_end. Ejemplo: "2026-05-28T14:00:00-04:00"
+${!hasImage ? 'IMPORTANTE: Este mensaje llegó SIN imagen adjunta. Si el texto hace referencia a una foto, imagen o adjunto, usa el intent "needs_image".' : ''}
 
 Mensaje del usuario: "${message}"
 

@@ -220,6 +220,24 @@ export async function POST(request: Request) {
       imageUrl = await uploadImageToStorage(supabase, imgData, mimeType, user.id)
       textContent = message.image.caption || ''
 
+      // Si hay ítems esperando imagen (needs_image previo), procesarlos con esta foto
+      const existingPending: IntentItem[] | null = user.pending_intent || null
+      const awaitingItems = existingPending?.filter(i => i.type === 'awaiting_image') || []
+      if (awaitingItems.length > 0 && imageUrl) {
+        const remaining = existingPending!.filter(i => i.type !== 'awaiting_image')
+        await supabase.from('users').update({ pending_intent: remaining.length > 0 ? remaining : null }).eq('id', user.id)
+        await Promise.all(awaitingItems.map(awaitingItem => {
+          const restoredItem: IntentItem = {
+            type: (awaitingItem.data.event_start ? 'event' : 'task') as IntentItem['type'],
+            data: awaitingItem.data,
+          }
+          return processItem(restoredItem, user, textContent, today, messageId, supabase, imageUrl)
+        }))
+        const titles = awaitingItems.map(i => `"${i.data.title}"`).join(' y ')
+        try { await sendWhatsAppMessage(from, `✅ Listo, ${titles} registrado con la imagen. 📷`) } catch (e) {}
+        return NextResponse.json({ ok: true })
+      }
+
       // Sin caption → preguntar al usuario qué ocurre con la foto
       if (!textContent) {
         let question = '📷 Recibí tu foto. ¿Qué ocurre con esto? ¿Me puedes explicar para registrarlo?'
@@ -278,7 +296,7 @@ export async function POST(request: Request) {
     // ── Flujo normal ──
     let intent
     try {
-      intent = await analyzeMessage(textContent, today, userTimezone, user.name || '')
+      intent = await analyzeMessage(textContent, today, userTimezone, user.name || '', message.type === 'image')
     } catch (aiError: any) {
       const isRateLimit = aiError?.message?.includes('429') || aiError?.status === 429
       const msg = isRateLimit ? 'Estoy procesando muchos mensajes, espera un momento. 🙏' : 'Tuve un problema procesando tu mensaje. Intenta de nuevo. 😅'
@@ -311,15 +329,21 @@ export async function POST(request: Request) {
       })
     )
 
-    const readyItems = resolvedItems.filter(i => !i.needs_info || i.needs_info.length === 0)
-    const incompleteItems = resolvedItems.filter(i => i.needs_info && i.needs_info.length > 0)
+    const needsImageItems = resolvedItems.filter(i => i.type === 'needs_image')
+    const otherItems = resolvedItems.filter(i => i.type !== 'needs_image')
+    const readyItems = otherItems.filter(i => !i.needs_info || i.needs_info.length === 0)
+    const incompleteItems = otherItems.filter(i => i.needs_info && i.needs_info.length > 0)
 
     await Promise.all(
       readyItems.map(item => processItem(item, user, textContent, today, messageId, supabase, effectiveImageUrl))
     )
 
-    if (incompleteItems.length > 0) {
-      await supabase.from('users').update({ pending_intent: incompleteItems }).eq('id', user.id)
+    const pendingToStore = [
+      ...incompleteItems,
+      ...needsImageItems.map(item => ({ type: 'awaiting_image' as const, data: item.data })),
+    ]
+    if (pendingToStore.length > 0) {
+      await supabase.from('users').update({ pending_intent: pendingToStore }).eq('id', user.id)
     }
 
     await supabase.from('diary_entries').insert({
