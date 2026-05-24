@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { analyzeMessage, transcribeAudio, IntentItem } from '@/lib/gemini'
+import { analyzeMessage, completePendingItems, transcribeAudio, IntentItem } from '@/lib/gemini'
 import { sendWhatsAppMessage, downloadWhatsAppMedia } from '@/lib/whatsapp'
 import { createCalendarEvent, findCalendarByName } from '@/lib/google-calendar'
 
@@ -16,14 +16,13 @@ export async function GET(request: Request) {
   const mode = searchParams.get('hub.mode')
   const token = searchParams.get('hub.verify_token')
   const challenge = searchParams.get('hub.challenge')
-
   if (mode === 'subscribe' && token === process.env.WHATSAPP_VERIFY_TOKEN) {
     return new Response(challenge, { status: 200 })
   }
   return new Response('Forbidden', { status: 403 })
 }
 
-async function processIntent(
+async function processItem(
   item: IntentItem,
   user: any,
   textContent: string,
@@ -100,7 +99,6 @@ async function processIntent(
         const matchedTask = pendingTasks?.find(t =>
           keywords.some(kw => t.title.toLowerCase().includes(kw.toLowerCase()))
         )
-
         if (matchedTask) {
           await supabase.from('tasks').update({
             status: 'completed',
@@ -136,16 +134,11 @@ export async function POST(request: Request) {
       .single()
 
     if (!user) {
-      try {
-        await sendWhatsAppMessage(from, 'No encontré tu cuenta en FlowDesk. Regístrate en nuestra app web primero.')
-      } catch (e) {
-        console.error('Error enviando mensaje a usuario no registrado:', e)
-      }
+      try { await sendWhatsAppMessage(from, 'No encontré tu cuenta en FlowDesk. Regístrate en nuestra app web primero.') } catch (e) {}
       return NextResponse.json({ ok: true })
     }
 
     let textContent = ''
-
     if (message.type === 'text') {
       textContent = message.text.body
     } else if (message.type === 'audio') {
@@ -153,33 +146,77 @@ export async function POST(request: Request) {
       const { data: audioData, mimeType } = await downloadWhatsAppMedia(mediaId)
       textContent = await transcribeAudio(audioData, mimeType)
     } else {
-      try {
-        await sendWhatsAppMessage(from, 'Solo puedo procesar mensajes de texto y audios por ahora. 😊')
-      } catch (e) {}
+      try { await sendWhatsAppMessage(from, 'Solo puedo procesar mensajes de texto y audios por ahora. 😊') } catch (e) {}
       return NextResponse.json({ ok: true })
     }
 
     const userTimezone = user.timezone || 'America/Santiago'
     const today = new Date().toLocaleDateString('en-CA', { timeZone: userTimezone })
 
+    // ── Si hay items pendientes esperando info, intentar completarlos ──
+    const pendingItems: IntentItem[] | null = user.pending_intent || null
+
+    if (pendingItems && pendingItems.length > 0) {
+      let result
+      try {
+        result = await completePendingItems(pendingItems, textContent, today, userTimezone)
+      } catch (e) {
+        console.error('Error completando pendientes:', e)
+        await supabase.from('users').update({ pending_intent: null }).eq('id', user.id)
+        try { await sendWhatsAppMessage(from, 'Tuve un problema retomando la conversación. Intenta de nuevo. 😅') } catch (e2) {}
+        return NextResponse.json({ ok: true })
+      }
+
+      // Procesar los items que quedaron completos
+      await Promise.all(
+        result.completed.map(item => processItem(item, user, textContent, today, messageId, supabase))
+      )
+
+      // Guardar los que siguen pendientes (o limpiar si ya no hay)
+      await supabase.from('users').update({
+        pending_intent: result.stillPending.length > 0 ? result.stillPending : null
+      }).eq('id', user.id)
+
+      // Guardar en bitácora
+      await supabase.from('diary_entries').insert({
+        user_id: user.id,
+        content: textContent,
+        entry_date: today,
+        whatsapp_message_id: messageId,
+      })
+
+      try { await sendWhatsAppMessage(from, result.response) } catch (e) {}
+      return NextResponse.json({ ok: true })
+    }
+
+    // ── Flujo normal ──
     let intent
     try {
       intent = await analyzeMessage(textContent, today, userTimezone)
     } catch (aiError: any) {
       const isRateLimit = aiError?.message?.includes('429') || aiError?.status === 429
       const msg = isRateLimit
-        ? 'Estoy procesando muchos mensajes, espera un momento e intenta de nuevo. 🙏'
-        : 'Tuve un problema procesando tu mensaje. Intenta de nuevo en unos segundos. 😅'
+        ? 'Estoy procesando muchos mensajes, espera un momento. 🙏'
+        : 'Tuve un problema procesando tu mensaje. Intenta de nuevo. 😅'
       try { await sendWhatsAppMessage(from, msg) } catch (e) {}
       return NextResponse.json({ ok: true })
     }
 
-    // Guardar el texto en la bitácora si hay contenido relevante
-    const diaryTypes = ['diary', 'task_complete', 'unknown']
-    const hasNonDiaryItem = intent.items.some(i => !diaryTypes.includes(i.type))
-    const hasDiaryItem = intent.items.some(i => diaryTypes.includes(i.type))
+    // Separar items completos de incompletos
+    const readyItems = intent.items.filter(i => !i.needs_info || i.needs_info.length === 0)
+    const incompleteItems = intent.items.filter(i => i.needs_info && i.needs_info.length > 0)
 
-    // Siempre guardar en bitácora
+    // Procesar los completos de inmediato
+    await Promise.all(
+      readyItems.map(item => processItem(item, user, textContent, today, messageId, supabase))
+    )
+
+    // Guardar pendientes si los hay
+    if (incompleteItems.length > 0) {
+      await supabase.from('users').update({ pending_intent: incompleteItems }).eq('id', user.id)
+    }
+
+    // Guardar en bitácora
     await supabase.from('diary_entries').insert({
       user_id: user.id,
       content: textContent,
@@ -187,17 +224,7 @@ export async function POST(request: Request) {
       whatsapp_message_id: messageId,
     })
 
-    // Procesar todos los items en paralelo
-    await Promise.all(
-      intent.items.map(item => processIntent(item, user, textContent, today, messageId, supabase))
-    )
-
-    try {
-      await sendWhatsAppMessage(from, intent.response)
-    } catch (e) {
-      console.error('Error enviando respuesta WhatsApp:', e)
-    }
-
+    try { await sendWhatsAppMessage(from, intent.response) } catch (e) {}
     return NextResponse.json({ ok: true })
 
   } catch (error) {
