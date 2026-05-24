@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
-export type MessageIntent = {
+export type IntentItem = {
   type: 'task' | 'event' | 'diary' | 'task_complete' | 'unknown'
   data: {
     title?: string
@@ -16,33 +16,50 @@ export type MessageIntent = {
     calendar_name?: string | null
     confidence: number
   }
+}
+
+export type MessageIntent = {
+  items: IntentItem[]
   response: string
 }
 
-const SYSTEM_PROMPT = `Eres un asistente de productividad personal. Analizas mensajes de WhatsApp en español y detectas si el usuario quiere:
+const SYSTEM_PROMPT = `Eres un asistente de productividad para profesionales de construcción. Analizas mensajes de WhatsApp en español y detectas TODAS las acciones que el usuario quiere realizar.
 
-1. CREAR UNA TAREA (type: "task"): Cuando menciona algo que debe hacer, una pendiente, un recordatorio.
-2. CREAR UN EVENTO (type: "event"): Cuando menciona una cita, reunión, evento con fecha y hora específica.
-3. ANOTAR EN DIARIO (type: "diary"): Cuando cuenta lo que hizo, reflexiones, actividades del día.
-4. COMPLETAR UNA TAREA (type: "task_complete"): Cuando indica que terminó, hizo, completó algo que podría ser una tarea pendiente.
-5. DESCONOCIDO (type: "unknown"): Si no encaja en ninguna categoría.
+Un solo mensaje puede contener MÚLTIPLES acciones (varias tareas, varios eventos, etc.). Debes detectarlas TODAS.
+
+Para cada acción, determina:
+- "task": algo que debe hacer, un pendiente, recordatorio
+- "event": cita, reunión, faena, evento con fecha/hora
+- "diary": reflexión, relato de lo que hizo, actividad del día
+- "task_complete": indica que terminó o completó algo pendiente
+- "unknown": no encaja en ninguna categoría
+
+REGLAS CLAVE:
+- NUNCA preguntes si quieres hacer algo. Si el usuario lo menciona, créalo directamente.
+- Si el mensaje menciona 2 eventos, retorna 2 items de tipo event.
+- Si mezcla evento y tarea, retorna ambos.
+- La respuesta debe confirmar TODO lo que se registró, de forma breve y clara.
 
 Responde SOLO con JSON válido con esta estructura exacta:
 {
-  "type": "task|event|diary|task_complete|unknown",
-  "data": {
-    "title": "título conciso si aplica",
-    "description": "descripción detallada si aplica",
-    "due_date": "YYYY-MM-DD si menciona fecha para tarea",
-    "event_start": "YYYY-MM-DDTHH:MM:SS si es evento",
-    "event_end": "YYYY-MM-DDTHH:MM:SS si es evento (suma 1h si no especifica fin)",
-    "priority": "low|medium|high según urgencia implícita",
-    "content": "contenido completo para entrada de diario",
-    "task_keywords": ["palabras clave para buscar tarea relacionada si es task_complete"],
-    "calendar_name": "nombre del calendario si el usuario lo especifica explícitamente (ej: 'trabajo', 'personal', 'familia'), null si no lo menciona",
-    "confidence": 0.0 a 1.0
-  },
-  "response": "Respuesta amigable en español al usuario confirmando lo que se registró"
+  "items": [
+    {
+      "type": "task|event|diary|task_complete|unknown",
+      "data": {
+        "title": "título conciso",
+        "description": "descripción si aplica",
+        "due_date": "YYYY-MM-DD si menciona fecha para tarea",
+        "event_start": "YYYY-MM-DDTHH:MM:SS±HH:MM si es evento",
+        "event_end": "YYYY-MM-DDTHH:MM:SS±HH:MM si es evento (suma 1h si no especifica fin)",
+        "priority": "low|medium|high según urgencia",
+        "content": "contenido para entrada de diario",
+        "task_keywords": ["palabras clave para buscar tarea relacionada si es task_complete"],
+        "calendar_name": "nombre del calendario si el usuario lo especifica, null si no",
+        "confidence": 0.0
+      }
+    }
+  ],
+  "response": "Confirmación breve en español de TODO lo que se registró. Usa emojis. Sin preguntas."
 }`
 
 export async function analyzeMessage(
@@ -62,7 +79,7 @@ export async function analyzeMessage(
   const prompt = `${SYSTEM_PROMPT}
 
 Fecha y hora actual: ${currentDate} (zona horaria: ${timezone}, UTC${utcOffset})
-IMPORTANTE: Cuando generes event_start y event_end, usa la hora LOCAL del usuario con el offset correcto. Ejemplo: si el usuario dice "14:00" y está en UTC-4, genera "2026-05-25T14:00:00-04:00"
+IMPORTANTE: Usa la hora LOCAL del usuario con el offset en event_start y event_end. Ejemplo: "2026-05-28T14:00:00-04:00"
 
 Mensaje del usuario: "${message}"
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { analyzeMessage, transcribeAudio } from '@/lib/gemini'
+import { analyzeMessage, transcribeAudio, IntentItem } from '@/lib/gemini'
 import { sendWhatsAppMessage, downloadWhatsAppMedia } from '@/lib/whatsapp'
 import { createCalendarEvent, findCalendarByName } from '@/lib/google-calendar'
 
@@ -21,6 +21,96 @@ export async function GET(request: Request) {
     return new Response(challenge, { status: 200 })
   }
   return new Response('Forbidden', { status: 403 })
+}
+
+async function processIntent(
+  item: IntentItem,
+  user: any,
+  textContent: string,
+  today: string,
+  messageId: string,
+  supabase: ReturnType<typeof getSupabase>
+) {
+  switch (item.type) {
+    case 'task': {
+      await supabase.from('tasks').insert({
+        user_id: user.id,
+        title: item.data.title || textContent.substring(0, 80),
+        description: item.data.description,
+        priority: item.data.priority || 'medium',
+        due_date: item.data.due_date,
+        status: 'pending',
+        whatsapp_message_id: messageId,
+      })
+      break
+    }
+
+    case 'event': {
+      if (!item.data.event_start) break
+      const eventTitle = item.data.title || textContent.substring(0, 80)
+      let googleEventId: string | undefined
+
+      if (user.google_access_token) {
+        try {
+          let calendarId = 'primary'
+          if (item.data.calendar_name) {
+            calendarId = await findCalendarByName({
+              accessToken: user.google_access_token,
+              refreshToken: user.google_refresh_token,
+              name: item.data.calendar_name,
+            })
+          }
+          const gcalEvent = await createCalendarEvent({
+            accessToken: user.google_access_token,
+            refreshToken: user.google_refresh_token,
+            title: eventTitle,
+            description: item.data.description,
+            startTime: item.data.event_start,
+            endTime: item.data.event_end,
+            timezone: user.timezone || 'America/Santiago',
+            calendarId,
+          })
+          googleEventId = gcalEvent.googleEventId
+        } catch (e) {
+          console.error('Error creando evento en Google Calendar:', e)
+        }
+      }
+
+      await supabase.from('calendar_events').insert({
+        user_id: user.id,
+        title: eventTitle,
+        description: item.data.description,
+        start_time: item.data.event_start,
+        end_time: item.data.event_end,
+        google_event_id: googleEventId,
+        whatsapp_message_id: messageId,
+      })
+      break
+    }
+
+    case 'task_complete': {
+      const keywords = item.data.task_keywords || []
+      if (keywords.length > 0) {
+        const { data: pendingTasks } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('user_id', user.id)
+          .in('status', ['pending', 'in_progress'])
+
+        const matchedTask = pendingTasks?.find(t =>
+          keywords.some(kw => t.title.toLowerCase().includes(kw.toLowerCase()))
+        )
+
+        if (matchedTask) {
+          await supabase.from('tasks').update({
+            status: 'completed',
+            completed_at: new Date().toISOString()
+          }).eq('id', matchedTask.id)
+        }
+      }
+      break
+    }
+  }
 }
 
 export async function POST(request: Request) {
@@ -63,12 +153,15 @@ export async function POST(request: Request) {
       const { data: audioData, mimeType } = await downloadWhatsAppMedia(mediaId)
       textContent = await transcribeAudio(audioData, mimeType)
     } else {
-      await sendWhatsAppMessage(from, 'Solo puedo procesar mensajes de texto y audios por ahora. 😊')
+      try {
+        await sendWhatsAppMessage(from, 'Solo puedo procesar mensajes de texto y audios por ahora. 😊')
+      } catch (e) {}
       return NextResponse.json({ ok: true })
     }
 
     const userTimezone = user.timezone || 'America/Santiago'
     const today = new Date().toLocaleDateString('en-CA', { timeZone: userTimezone })
+
     let intent
     try {
       intent = await analyzeMessage(textContent, today, userTimezone)
@@ -77,132 +170,34 @@ export async function POST(request: Request) {
       const msg = isRateLimit
         ? 'Estoy procesando muchos mensajes, espera un momento e intenta de nuevo. 🙏'
         : 'Tuve un problema procesando tu mensaje. Intenta de nuevo en unos segundos. 😅'
-      await sendWhatsAppMessage(from, msg)
+      try { await sendWhatsAppMessage(from, msg) } catch (e) {}
       return NextResponse.json({ ok: true })
     }
 
-    switch (intent.type) {
-      case 'task': {
-        const { data: task } = await supabase.from('tasks').insert({
-          user_id: user.id,
-          title: intent.data.title || textContent.substring(0, 80),
-          description: intent.data.description,
-          priority: intent.data.priority || 'medium',
-          due_date: intent.data.due_date,
-          status: 'pending',
-          whatsapp_message_id: messageId,
-        }).select().single()
+    // Guardar el texto en la bitácora si hay contenido relevante
+    const diaryTypes = ['diary', 'task_complete', 'unknown']
+    const hasNonDiaryItem = intent.items.some(i => !diaryTypes.includes(i.type))
+    const hasDiaryItem = intent.items.some(i => diaryTypes.includes(i.type))
 
-        await supabase.from('diary_entries').insert({
-          user_id: user.id,
-          content: textContent,
-          entry_date: today,
-          whatsapp_message_id: messageId,
-        })
+    // Siempre guardar en bitácora
+    await supabase.from('diary_entries').insert({
+      user_id: user.id,
+      content: textContent,
+      entry_date: today,
+      whatsapp_message_id: messageId,
+    })
 
-        break
-      }
-
-      case 'event': {
-        if (intent.data.event_start) {
-          const eventTitle = intent.data.title || textContent.substring(0, 80)
-          let googleEventId: string | undefined
-
-          if (user.google_access_token) {
-            try {
-              let calendarId = 'primary'
-              if (intent.data.calendar_name) {
-                calendarId = await findCalendarByName({
-                  accessToken: user.google_access_token,
-                  refreshToken: user.google_refresh_token,
-                  name: intent.data.calendar_name,
-                })
-              }
-              const gcalEvent = await createCalendarEvent({
-                accessToken: user.google_access_token,
-                refreshToken: user.google_refresh_token,
-                title: eventTitle,
-                description: intent.data.description,
-                startTime: intent.data.event_start,
-                endTime: intent.data.event_end,
-                timezone: userTimezone,
-                calendarId,
-              })
-              googleEventId = gcalEvent.googleEventId
-            } catch (calError) {
-              console.error('Error creando evento en Google Calendar:', calError)
-            }
-          }
-
-          await supabase.from('calendar_events').insert({
-            user_id: user.id,
-            title: eventTitle,
-            description: intent.data.description,
-            start_time: intent.data.event_start,
-            end_time: intent.data.event_end,
-            google_event_id: googleEventId,
-            whatsapp_message_id: messageId,
-          })
-        }
-
-        await supabase.from('diary_entries').insert({
-          user_id: user.id,
-          content: textContent,
-          entry_date: today,
-          whatsapp_message_id: messageId,
-        })
-
-        break
-      }
-
-      case 'task_complete': {
-        const keywords = intent.data.task_keywords || []
-        if (keywords.length > 0) {
-          const { data: pendingTasks } = await supabase
-            .from('tasks')
-            .select('*')
-            .eq('user_id', user.id)
-            .in('status', ['pending', 'in_progress'])
-
-          const matchedTask = pendingTasks?.find(t =>
-            keywords.some(kw => t.title.toLowerCase().includes(kw.toLowerCase()))
-          )
-
-          if (matchedTask) {
-            await supabase.from('tasks').update({
-              status: 'completed',
-              completed_at: new Date().toISOString()
-            }).eq('id', matchedTask.id)
-          }
-        }
-
-        await supabase.from('diary_entries').insert({
-          user_id: user.id,
-          content: textContent,
-          entry_date: today,
-          whatsapp_message_id: messageId,
-        })
-
-        break
-      }
-
-      case 'diary':
-      default: {
-        await supabase.from('diary_entries').insert({
-          user_id: user.id,
-          content: textContent,
-          entry_date: today,
-          whatsapp_message_id: messageId,
-        })
-        break
-      }
-    }
+    // Procesar todos los items en paralelo
+    await Promise.all(
+      intent.items.map(item => processIntent(item, user, textContent, today, messageId, supabase))
+    )
 
     try {
       await sendWhatsAppMessage(from, intent.response)
     } catch (e) {
       console.error('Error enviando respuesta WhatsApp:', e)
     }
+
     return NextResponse.json({ ok: true })
 
   } catch (error) {
