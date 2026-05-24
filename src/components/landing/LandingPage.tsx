@@ -336,7 +336,7 @@ export default function LandingPage() {
       }}>
         <LogoMark />
         <p style={{ fontSize: '0.8rem', color: 'rgba(245,245,245,0.2)' }}>
-          © 2025 FlowDesk · Hecho para la obra, desde la obra.
+          © 2026 FlowDesk · Hecho para la obra, desde la obra.
         </p>
       </footer>
     </div>
