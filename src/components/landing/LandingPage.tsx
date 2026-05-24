@@ -327,7 +327,7 @@ export default function LandingPage() {
               marginBottom: '2rem',
               fontStyle: 'italic',
             }}>
-              "Creé FlowDesk porque yo mismo lo necesitaba. En obra, el día se come solo: reuniones, pendientes, decisiones. Quería algo que no me hiciera perder tiempo aprendiendo una app nueva — que simplemente funcionara desde donde ya hablo: WhatsApp."
+              "En obra, el WhatsApp ya es la herramienta de comunicación principal — es lo que usamos para coordinar con cuadrillas, proveedores y jefatura mientras estamos metidos en terreno. Entonces me pregunté: ¿por qué no organizar mi día desde ahí mismo? Creé FlowDesk porque necesitaba algo que se adaptara a ese ritmo, no al revés. Sin aprender apps nuevas, sin salir del flujo de trabajo."
             </blockquote>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
