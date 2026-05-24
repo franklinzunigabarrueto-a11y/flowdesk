@@ -72,6 +72,41 @@ export async function createCalendarEvent(params: {
   }
 }
 
+export async function updateCalendarEvent(params: {
+  accessToken: string
+  refreshToken?: string
+  googleEventId: string
+  title?: string
+  description?: string
+  startTime?: string
+  endTime?: string
+  timezone?: string
+}): Promise<void> {
+  const auth = getOAuthClient(params.accessToken, params.refreshToken)
+  const calendar = google.calendar({ version: 'v3', auth })
+
+  const existing = await calendar.events.get({ calendarId: 'primary', eventId: params.googleEventId })
+  const patch: any = {}
+
+  if (params.title) patch.summary = params.title
+  if (params.description !== undefined) patch.description = params.description
+  if (params.startTime) {
+    patch.start = { dateTime: new Date(params.startTime).toISOString(), timeZone: params.timezone || 'America/Santiago' }
+    if (!params.endTime) {
+      const start = new Date(params.startTime)
+      const origEnd = existing.data.end?.dateTime
+      const origStart = existing.data.start?.dateTime
+      const duration = origEnd && origStart ? new Date(origEnd).getTime() - new Date(origStart).getTime() : 3600000
+      patch.end = { dateTime: new Date(start.getTime() + duration).toISOString(), timeZone: params.timezone || 'America/Santiago' }
+    }
+  }
+  if (params.endTime) {
+    patch.end = { dateTime: new Date(params.endTime).toISOString(), timeZone: params.timezone || 'America/Santiago' }
+  }
+
+  await calendar.events.patch({ calendarId: 'primary', eventId: params.googleEventId, requestBody: patch })
+}
+
 export async function deleteCalendarEvent(params: {
   accessToken: string
   refreshToken?: string

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { analyzeMessage, completePendingItems, transcribeAudio, IntentItem } from '@/lib/gemini'
 import { sendWhatsAppMessage, downloadWhatsAppMedia } from '@/lib/whatsapp'
-import { createCalendarEvent, findCalendarByName } from '@/lib/google-calendar'
+import { createCalendarEvent, findCalendarByName, updateCalendarEvent } from '@/lib/google-calendar'
 
 function getSupabase() {
   return createClient(
@@ -84,6 +84,43 @@ async function processItem(
         google_event_id: googleEventId,
         whatsapp_message_id: messageId,
       })
+      break
+    }
+
+    case 'edit_event': {
+      // Buscar el evento más reciente del usuario
+      const { data: lastEvent } = await supabase
+        .from('calendar_events')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (!lastEvent) break
+
+      const updates: any = {}
+      if (item.data.title) updates.title = item.data.title
+      if (item.data.event_start) updates.start_time = item.data.event_start
+      if (item.data.event_end) updates.end_time = item.data.event_end
+
+      await supabase.from('calendar_events').update(updates).eq('id', lastEvent.id)
+
+      if (lastEvent.google_event_id && user.google_access_token) {
+        try {
+          await updateCalendarEvent({
+            accessToken: user.google_access_token,
+            refreshToken: user.google_refresh_token,
+            googleEventId: lastEvent.google_event_id,
+            title: item.data.title,
+            startTime: item.data.event_start,
+            endTime: item.data.event_end,
+            timezone: user.timezone || 'America/Santiago',
+          })
+        } catch (e) {
+          console.error('Error actualizando evento en Google Calendar:', e)
+        }
+      }
       break
     }
 

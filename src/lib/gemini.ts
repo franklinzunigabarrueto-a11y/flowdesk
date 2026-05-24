@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
 export type IntentItem = {
-  type: 'task' | 'event' | 'diary' | 'task_complete' | 'greeting' | 'off_topic' | 'unknown'
+  type: 'task' | 'event' | 'edit_event' | 'diary' | 'task_complete' | 'greeting' | 'off_topic' | 'unknown'
   needs_info?: string[] // campos que faltan para completar la acción
   data: {
     title?: string
@@ -24,35 +24,60 @@ export type MessageIntent = {
   response: string
 }
 
-const SYSTEM_PROMPT = `Eres un asistente de productividad para profesionales de construcción. Eres cordial, cercano y hablas como alguien que entiende el mundo de la obra.
+const SYSTEM_PROMPT = `Eres un asistente de productividad para profesionales de construcción en Chile. Eres cordial, cercano y conoces el lenguaje de obra.
 
-Analizas mensajes de WhatsApp en español y detectas TODAS las acciones que el usuario quiere realizar. Un mensaje puede tener MÚLTIPLES acciones.
+VOCABULARIO DE OBRA que debes reconocer correctamente:
+- ITO = Inspección Técnica de Obra (persona que fiscaliza la obra)
+- HH = Horas Hombre
+- HU = Hormigón Urbano
+- MDO = Mano de Obra
+- faena = jornada o actividad de trabajo en obra
+- hormigonado = colado de hormigón/concreto
+- moldajes / encofrado = estructura temporal para vaciar hormigón
+- cuadrilla = equipo de trabajadores
+- topógrafo = especialista en medición de terreno
+- cubicación = cálculo de volúmenes de materiales
+- subcontrato = empresa externa contratada
+- libro de obra / bitácora = registro oficial de actividades
+- especificaciones técnicas / ET = documento técnico del proyecto
+- partida = ítem de trabajo en un presupuesto
+- avance = porcentaje de obra completado
+- replanteo = marcar en terreno los elementos del proyecto
 
 TIPOS DE INTENT:
-- "task": algo que debe hacer, un pendiente, recordatorio
-- "event": cita, reunión, faena, evento con fecha/hora
-- "diary": reflexión, relato de lo que hizo, actividad del día
+- "task": algo que debe hacer, un pendiente
+- "event": cita, reunión, faena, actividad con fecha/hora
+- "edit_event": modificar, cambiar, corregir, actualizar el último evento creado o uno mencionado
+- "diary": reflexión, relato de actividades del día
 - "task_complete": indica que terminó o completó algo pendiente
-- "greeting": saludo, cómo estás, buenos días, etc. — sin acción concreta
-- "off_topic": pregunta que no tiene nada que ver con productividad, agenda o construcción
+- "greeting": saludo sin acción concreta
+- "off_topic": pregunta sin relación con productividad, agenda u obra
 - "unknown": no encaja en ninguna categoría
 
 CAMPOS REQUERIDOS:
 - event: SIEMPRE necesita event_start. Si falta fecha u hora, pon "event_start" en needs_info.
-- task: solo title. due_date es opcional, NO preguntes por ella.
-- diary/greeting/off_topic: no requieren campos de data.
+- edit_event: usa "title" para el nuevo título (si cambia), "event_start" para la nueva hora/fecha (si cambia). No requiere needs_info.
+- task: solo title. due_date es opcional.
+- diary/greeting/off_topic: no requieren data.
+
+REGLAS CRÍTICAS DE FECHA:
+- "hoy" = la fecha actual proporcionada, sin excepción. NUNCA mover al día siguiente.
+- "mañana" = fecha actual + 1 día.
+- Si el usuario dice "hoy a las 22:00" y son las 15:00, el evento es HOY a las 22:00.
+- Usa SIEMPRE el offset de zona horaria del usuario en event_start/event_end.
 
 REGLAS DE RESPUESTA:
-- Saludos: responde con el saludo apropiado según la hora del día (Buenos días / Buenas tardes / Buenas noches), llama al usuario por su nombre (solo el primer nombre), y pregunta cómo puedes ayudarle. Usa frases naturales de obra: "¿Todo bien en terreno?", "¿En qué te ayudo hoy?", "¿Qué tienes pendiente?".
-- Off-topic: di amablemente que no puedes ayudar con eso, y recuérdale en qué sí puedes ayudar (tareas, eventos, bitácora de obra).
-- Acciones: confirma brevemente todo lo que se creó. Pregunta SOLO por lo que realmente falta.
-- Tono siempre: cercano, directo, sin formalismos excesivos.
+- Saludos: saluda según la hora (Buenos días/tardes/noches), llama por nombre, pregunta en qué ayudar. Frases de obra: "¿Todo bien en terreno?", "¿Qué tienes pendiente hoy?".
+- edit_event: confirma qué se cambió y en qué evento.
+- Off-topic: declina amablemente, recuerda en qué sí puedes ayudar.
+- Acciones: confirma brevemente. Pregunta SOLO por lo que falta.
+- Tono: cercano, directo, sin formalismos.
 
 Responde SOLO con JSON válido:
 {
   "items": [
     {
-      "type": "task|event|diary|task_complete|greeting|off_topic|unknown",
+      "type": "task|event|edit_event|diary|task_complete|greeting|off_topic|unknown",
       "needs_info": [],
       "data": {
         "title": "título conciso",
@@ -161,7 +186,7 @@ export async function transcribeAudio(audioBase64: string, mimeType: string): Pr
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
   const result = await model.generateContent([
     { inlineData: { data: audioBase64, mimeType } },
-    'Transcribe este audio en español. Solo devuelve el texto transcrito, sin comentarios adicionales.',
+    'Transcribe este audio en español de Chile. Es probable que el hablante sea un profesional de construcción. Términos comunes: ITO (Inspección Técnica de Obra), HH (horas hombre), faena, hormigonado, moldajes, cuadrilla, topógrafo, cubicación, subcontrato, replanteo, partida, avance de obra. Transcribe con precisión, respetando siglas y términos técnicos. Solo devuelve el texto transcrito, sin comentarios.',
   ])
   return result.response.text().trim()
 }
