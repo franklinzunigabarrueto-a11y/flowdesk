@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, CheckCircle, Circle, Clock, Flag, Trash2, ChevronDown } from 'lucide-react'
+import { Plus, CheckCircle, Circle, Clock, Flag, Trash2 } from 'lucide-react'
 import { Task, TaskStatus, TaskPriority } from '@/types'
 import { formatDate } from '@/lib/utils'
 
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
   high: '#ef4444',
-  medium: '#f59e0b',
+  medium: '#f97316',
   low: '#22c55e',
 }
 
@@ -101,16 +101,17 @@ export default function TasksView() {
           style={{
             display: 'flex', alignItems: 'center', gap: '8px',
             padding: '10px 18px', borderRadius: '10px',
-            background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
+            background: 'var(--primary)',
             border: 'none', color: 'white', cursor: 'pointer',
-            fontSize: '0.875rem', fontWeight: 500
+            fontSize: '0.875rem', fontWeight: 600,
+            boxShadow: '0 0 15px var(--primary-glow)',
           }}
         >
           <Plus size={16} /> Nueva tarea
         </button>
       </div>
 
-      {/* Formulario nueva tarea */}
+      {/* Formulario */}
       {showForm && (
         <form onSubmit={createTask} style={{
           background: 'var(--surface)', border: '1px solid var(--border)',
@@ -198,7 +199,8 @@ export default function TasksView() {
               background: filter === f ? 'var(--primary)' : 'var(--surface)',
               border: filter === f ? 'none' : '1px solid var(--border)',
               color: filter === f ? 'white' : 'var(--text-muted)',
-              transition: 'all 0.2s'
+              transition: 'all 0.2s',
+              boxShadow: filter === f ? '0 0 10px var(--primary-glow)' : 'none',
             }}
           >
             {f === 'all' ? 'Todas' : STATUS_LABELS[f]} ({counts[f]})
@@ -231,8 +233,9 @@ export default function TasksView() {
               padding: '1rem 1.25rem',
               background: 'var(--surface)',
               border: '1px solid var(--border)',
+              borderLeft: task.status !== 'completed' ? `3px solid ${PRIORITY_COLORS[task.priority]}` : '3px solid var(--border)',
               borderRadius: '14px',
-              opacity: task.status === 'completed' ? 0.6 : 1,
+              opacity: task.status === 'completed' ? 0.55 : 1,
               transition: 'all 0.2s'
             }}>
               <button

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { Phone, CheckCircle, ArrowRight, Zap } from 'lucide-react'
+import { Phone, CheckCircle, ArrowRight } from 'lucide-react'
 
 export default function OnboardingPage() {
   const [step, setStep] = useState(1)
@@ -68,7 +68,7 @@ export default function OnboardingPage() {
       {/* Fondo */}
       <div style={{
         position: 'fixed', inset: 0,
-        background: 'radial-gradient(ellipse at 50% 50%, rgba(124,92,252,0.1) 0%, transparent 70%)',
+        background: 'radial-gradient(ellipse at 50% 50%, rgba(249,115,22,0.1) 0%, transparent 70%)',
         pointerEvents: 'none'
       }} />
 
@@ -82,16 +82,24 @@ export default function OnboardingPage() {
       }}>
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '2rem' }}>
-          <div style={{
-            width: '36px', height: '36px', borderRadius: '10px',
-            background: 'linear-gradient(135deg, var(--primary), var(--accent))',
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}>
-            <Zap size={20} color="white" />
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="36" height="36" rx="9" fill="#f97316"/>
+            <rect x="7" y="11" width="22" height="17" rx="3" fill="white" fillOpacity="0.12"/>
+            <rect x="7" y="11" width="22" height="6" rx="3" fill="white" fillOpacity="0.2"/>
+            <rect x="13" y="8" width="3" height="5" rx="1.5" fill="white"/>
+            <rect x="20" y="8" width="3" height="5" rx="1.5" fill="white"/>
+            <path d="M12 24 C12 19.5 15 17 18 17 C21 17 24 19.5 24 24 Z" fill="white"/>
+            <rect x="11" y="23.5" width="14" height="2" rx="1" fill="white"/>
+            <path d="M18 17 L18 23.5" stroke="#f97316" strokeWidth="1.2" strokeLinecap="round"/>
+          </svg>
+          <div>
+            <span style={{ fontSize: '1.1rem', fontWeight: 800, display: 'block', lineHeight: 1 }}>
+              Flow<span style={{ color: 'var(--primary)' }}>Desk</span>
+            </span>
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              La agenda del constructor
+            </span>
           </div>
-          <span style={{ fontSize: '1.2rem', fontWeight: 700 }}>
-            Flow<span style={{ color: 'var(--primary)' }}>Desk</span>
-          </span>
         </div>
 
         {/* Progress */}
@@ -115,8 +123,8 @@ export default function OnboardingPage() {
             </p>
             <div style={{
               padding: '1rem',
-              background: 'rgba(124,92,252,0.1)',
-              border: '1px solid rgba(124,92,252,0.2)',
+              background: 'rgba(249,115,22,0.1)',
+              border: '1px solid rgba(249,115,22,0.2)',
               borderRadius: '12px',
               marginBottom: '2rem'
             }}>

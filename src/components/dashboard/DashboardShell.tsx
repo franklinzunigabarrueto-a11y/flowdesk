@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { Calendar, CheckSquare, BookOpen, Zap, LogOut, User } from 'lucide-react'
+import { Calendar, CheckSquare, BookOpen, LogOut, User } from 'lucide-react'
 import { UserProfile } from '@/types'
 
 interface Props {
@@ -14,7 +14,7 @@ interface Props {
 const navItems = [
   { href: '/dashboard', icon: Calendar, label: 'Calendario' },
   { href: '/dashboard/tasks', icon: CheckSquare, label: 'Tareas' },
-  { href: '/dashboard/diary', icon: BookOpen, label: 'Diario' },
+  { href: '/dashboard/diary', icon: BookOpen, label: 'Bitácora' },
 ]
 
 export default function DashboardShell({ user, children }: Props) {
@@ -42,16 +42,24 @@ export default function DashboardShell({ user, children }: Props) {
         {/* Logo */}
         <div style={{ padding: '0 1.25rem 1.5rem', borderBottom: '1px solid var(--border)', marginBottom: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '32px', height: '32px', borderRadius: '8px',
-              background: 'linear-gradient(135deg, var(--primary), var(--accent))',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-            }}>
-              <Zap size={18} color="white" />
+            <svg width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect width="36" height="36" rx="9" fill="#f97316"/>
+              <rect x="7" y="11" width="22" height="17" rx="3" fill="white" fillOpacity="0.12"/>
+              <rect x="7" y="11" width="22" height="6" rx="3" fill="white" fillOpacity="0.2"/>
+              <rect x="13" y="8" width="3" height="5" rx="1.5" fill="white"/>
+              <rect x="20" y="8" width="3" height="5" rx="1.5" fill="white"/>
+              <path d="M12 24 C12 19.5 15 17 18 17 C21 17 24 19.5 24 24 Z" fill="white"/>
+              <rect x="11" y="23.5" width="14" height="2" rx="1" fill="white"/>
+              <path d="M18 17 L18 23.5" stroke="#f97316" strokeWidth="1.2" strokeLinecap="round"/>
+            </svg>
+            <div>
+              <span style={{ fontSize: '1.05rem', fontWeight: 800, letterSpacing: '-0.02em', display: 'block', lineHeight: 1 }}>
+                Flow<span style={{ color: '#f97316' }}>Desk</span>
+              </span>
+              <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                La agenda del constructor
+              </span>
             </div>
-            <span style={{ fontSize: '1.1rem', fontWeight: 700 }}>
-              Flow<span style={{ color: 'var(--primary)' }}>Desk</span>
-            </span>
           </div>
         </div>
 
@@ -70,10 +78,10 @@ export default function DashboardShell({ user, children }: Props) {
                   marginBottom: '4px',
                   fontSize: '0.9rem', fontWeight: active ? 600 : 400,
                   color: active ? 'white' : 'var(--text-muted)',
-                  background: active ? 'linear-gradient(135deg, var(--primary), var(--primary-dark))' : 'transparent',
+                  background: active ? '#f97316' : 'transparent',
                   textDecoration: 'none',
                   transition: 'all 0.2s',
-                  boxShadow: active ? '0 0 15px var(--primary-glow)' : 'none'
+                  boxShadow: active ? '0 0 15px rgba(249,115,22,0.35)' : 'none'
                 }}
               >
                 <Icon size={18} />
@@ -95,7 +103,7 @@ export default function DashboardShell({ user, children }: Props) {
             ) : (
               <div style={{
                 width: '32px', height: '32px', borderRadius: '50%',
-                background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center'
               }}>
                 <User size={16} color="white" />
               </div>

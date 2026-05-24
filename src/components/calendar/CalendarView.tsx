@@ -3,12 +3,11 @@
 import { useState, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, Plus, Clock, Trash2 } from 'lucide-react'
 import { CalendarEvent } from '@/types'
-import { formatDate } from '@/lib/utils'
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
-const EVENT_COLORS = ['#7c5cfc', '#00e5cc', '#f59e0b', '#22c55e', '#ef4444', '#3b82f6']
+const EVENT_COLORS = ['#f97316', '#fb923c', '#f59e0b', '#22c55e', '#ef4444', '#3b82f6']
 
 export default function CalendarView() {
   const today = new Date()
@@ -68,15 +67,16 @@ export default function CalendarView() {
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Calendario</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '2px' }}>
-            Gestiona tus eventos y agenda
+            Gestiona tus eventos y agenda de obra
           </p>
         </div>
         <button style={{
           display: 'flex', alignItems: 'center', gap: '8px',
           padding: '10px 18px', borderRadius: '10px',
-          background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
+          background: 'var(--primary)',
           border: 'none', color: 'white', cursor: 'pointer',
-          fontSize: '0.875rem', fontWeight: 500
+          fontSize: '0.875rem', fontWeight: 600,
+          boxShadow: '0 0 15px var(--primary-glow)',
         }}>
           <Plus size={16} /> Nuevo evento
         </button>
@@ -157,8 +157,8 @@ export default function CalendarView() {
                     borderRadius: '10px',
                     border: isSelected && !isToday ? '1px solid var(--primary)' : '1px solid transparent',
                     background: isToday
-                      ? 'linear-gradient(135deg, var(--primary), var(--primary-dark))'
-                      : isSelected ? 'rgba(124,92,252,0.1)' : 'transparent',
+                      ? 'var(--primary)'
+                      : isSelected ? 'rgba(249,115,22,0.12)' : 'transparent',
                     color: isToday ? 'white' : 'var(--foreground)',
                     cursor: 'pointer',
                     fontSize: '0.875rem',
@@ -213,7 +213,7 @@ export default function CalendarView() {
                   textAlign: 'center', padding: '2rem 1rem',
                   color: 'var(--text-muted)', fontSize: '0.85rem'
                 }}>
-                  <Calendar size={32} style={{ margin: '0 auto 0.75rem', opacity: 0.4 }} />
+                  <CalendarIcon size={32} style={{ margin: '0 auto 0.75rem', opacity: 0.4 }} />
                   Sin eventos este día.<br/>
                   <span style={{ fontSize: '0.8rem' }}>Escribe en WhatsApp para agendar.</span>
                 </div>
@@ -268,6 +268,6 @@ export default function CalendarView() {
   )
 }
 
-function Calendar({ size, style }: { size: number; style?: React.CSSProperties }) {
+function CalendarIcon({ size, style }: { size: number; style?: React.CSSProperties }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} style={style}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
 }

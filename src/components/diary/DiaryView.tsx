@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { BookOpen, Calendar, Mic, Search, ChevronLeft, ChevronRight } from 'lucide-react'
+import { BookOpen, Mic, Search, ChevronLeft, ChevronRight } from 'lucide-react'
 import { DiaryEntry } from '@/types'
 import { formatDate, isToday } from '@/lib/utils'
 
@@ -43,7 +43,7 @@ export default function DiaryView() {
     <div style={{ padding: '2rem', maxWidth: '900px', margin: '0 auto' }}>
       {/* Header */}
       <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Diario personal</h1>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Bitácora de obra</h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '2px' }}>
           Tu registro diario desde WhatsApp
         </p>
@@ -51,7 +51,6 @@ export default function DiaryView() {
 
       {/* Nav fecha + búsqueda */}
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-        {/* Navegación de fecha */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: '8px',
           background: 'var(--surface)', border: '1px solid var(--border)',
@@ -85,7 +84,6 @@ export default function DiaryView() {
           </button>
         </div>
 
-        {/* Selector de fecha */}
         <input
           type="date"
           value={selectedDate}
@@ -98,7 +96,6 @@ export default function DiaryView() {
           }}
         />
 
-        {/* Búsqueda */}
         <div style={{ flex: 1, position: 'relative', minWidth: '180px' }}>
           <Search size={16} style={{
             position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)',
@@ -106,7 +103,7 @@ export default function DiaryView() {
           }} />
           <input
             type="text"
-            placeholder="Buscar en el diario..."
+            placeholder="Buscar en la bitácora..."
             value={searchQuery}
             onChange={e => { setSearchQuery(e.target.value); if (!e.target.value) fetchEntries() }}
             onKeyDown={e => e.key === 'Enter' && fetchEntries()}
@@ -145,12 +142,12 @@ export default function DiaryView() {
           {entries.map((entry, i) => (
             <div key={entry.id} style={{
               background: 'var(--surface)', border: '1px solid var(--border)',
+              borderLeft: `3px solid ${entry.audio_url ? '#ef4444' : 'var(--primary)'}`,
               borderRadius: '16px', overflow: 'hidden',
               animation: 'fadeIn 0.3s ease',
               animationDelay: `${i * 0.05}s`,
               animationFillMode: 'backwards'
             }}>
-              {/* Header entrada */}
               <div style={{
                 display: 'flex', alignItems: 'center', gap: '10px',
                 padding: '0.875rem 1.25rem',
@@ -159,8 +156,8 @@ export default function DiaryView() {
               }}>
                 <div style={{
                   width: '28px', height: '28px', borderRadius: '8px',
-                  background: entry.audio_url ? 'rgba(239,68,68,0.1)' : 'rgba(124,92,252,0.1)',
-                  border: `1px solid ${entry.audio_url ? 'rgba(239,68,68,0.2)' : 'rgba(124,92,252,0.2)'}`,
+                  background: entry.audio_url ? 'rgba(239,68,68,0.1)' : 'rgba(249,115,22,0.1)',
+                  border: `1px solid ${entry.audio_url ? 'rgba(239,68,68,0.2)' : 'rgba(249,115,22,0.2)'}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center'
                 }}>
                   {entry.audio_url
@@ -175,15 +172,14 @@ export default function DiaryView() {
                 {entry.task_references && entry.task_references.length > 0 && (
                   <span style={{
                     marginLeft: 'auto',
-                    fontSize: '0.72rem', color: 'var(--accent)',
-                    background: 'rgba(0,229,204,0.1)', padding: '2px 8px', borderRadius: '100px'
+                    fontSize: '0.72rem', color: 'var(--primary)',
+                    background: 'rgba(249,115,22,0.1)', padding: '2px 8px', borderRadius: '100px'
                   }}>
                     {entry.task_references.length} tarea{entry.task_references.length > 1 ? 's' : ''} mencionada{entry.task_references.length > 1 ? 's' : ''}
                   </span>
                 )}
               </div>
 
-              {/* Contenido */}
               <div style={{ padding: '1rem 1.25rem' }}>
                 <p style={{
                   fontSize: '0.9rem', lineHeight: 1.7,
