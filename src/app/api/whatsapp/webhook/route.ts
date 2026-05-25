@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import sharp from 'sharp'
 import { analyzeMessage, completePendingItems, transcribeAudio, analyzeImageForQuestion, IntentItem } from '@/lib/gemini'
 import { sendWhatsAppMessage, downloadWhatsAppMedia } from '@/lib/whatsapp'
 import { createCalendarEvent, findCalendarByName, updateCalendarEvent } from '@/lib/google-calendar'
@@ -22,6 +23,31 @@ export async function GET(request: Request) {
   return new Response('Forbidden', { status: 403 })
 }
 
+const MAX_BYTES = 2 * 1024 * 1024 // 2 MB
+
+async function compressToUnder2MB(input: Buffer): Promise<{ buffer: Buffer; ext: string; mime: string }> {
+  // Try progressive quality reductions until under 2MB
+  const attempts = [
+    { quality: 82, width: 1920 },
+    { quality: 65, width: 1600 },
+    { quality: 50, width: 1280 },
+    { quality: 35, width: 1024 },
+    { quality: 25, width: 800 },
+  ]
+  for (const { quality, width } of attempts) {
+    const compressed = await sharp(input)
+      .resize({ width, withoutEnlargement: true })
+      .jpeg({ quality, progressive: true })
+      .toBuffer()
+    if (compressed.length <= MAX_BYTES) {
+      return { buffer: compressed, ext: 'jpg', mime: 'image/jpeg' }
+    }
+  }
+  // Last resort: 20% quality, 640px wide
+  const last = await sharp(input).resize({ width: 640, withoutEnlargement: true }).jpeg({ quality: 20 }).toBuffer()
+  return { buffer: last, ext: 'jpg', mime: 'image/jpeg' }
+}
+
 async function uploadImageToStorage(
   supabase: ReturnType<typeof getSupabase>,
   base64: string,
@@ -29,13 +55,23 @@ async function uploadImageToStorage(
   userId: string
 ): Promise<string | null> {
   try {
-    const ext = mimeType.includes('png') ? 'png' : mimeType.includes('gif') ? 'gif' : 'jpg'
-    const filename = `${userId}/${Date.now()}.${ext}`
-    const buffer = Buffer.from(base64, 'base64')
+    let buffer = Buffer.from(base64, 'base64') as Buffer
+    let ext = mimeType.includes('png') ? 'png' : mimeType.includes('gif') ? 'gif' : 'jpg'
+    let uploadMime = mimeType
 
+    if (buffer.length > MAX_BYTES && !mimeType.includes('gif')) {
+      console.log(`[upload] Imagen ${(buffer.length / 1024 / 1024).toFixed(2)}MB — comprimiendo...`)
+      const compressed = await compressToUnder2MB(buffer)
+      buffer = compressed.buffer as Buffer
+      ext = compressed.ext
+      uploadMime = compressed.mime
+      console.log(`[upload] Comprimida a ${(buffer.length / 1024 / 1024).toFixed(2)}MB`)
+    }
+
+    const filename = `${userId}/${Date.now()}.${ext}`
     const { error } = await supabase.storage
       .from('attachments')
-      .upload(filename, buffer, { contentType: mimeType, upsert: false })
+      .upload(filename, buffer, { contentType: uploadMime, upsert: false })
 
     if (error) { console.error('Error subiendo imagen:', error); return null }
 

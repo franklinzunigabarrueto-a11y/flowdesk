@@ -91,7 +91,6 @@ export default function CalendarView() {
   }
 
   async function uploadFile(file: File, setUrl: (u: string) => void, setUploading: (b: boolean) => void) {
-    if (file.size > 2 * 1024 * 1024) { alert('El archivo supera 2 MB'); return }
     setUploading(true)
     const fd = new FormData()
     fd.append('file', file)
@@ -526,7 +525,7 @@ function DropZone({ imageUrl, uploading, dragOver, onFile, onDragOver, onDragLea
           }}
         >
           <Paperclip size={14} />
-          {uploading ? 'Subiendo...' : 'Adjuntar archivo (máx. 2 MB) o arrastra aquí'}
+          {uploading ? 'Subiendo...' : 'Adjuntar imagen o archivo · arrastra aquí'}
           <input ref={inputRef} type="file" accept="image/*,.pdf,.doc,.docx" style={{ display: 'none' }}
             onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f) }}
           />
