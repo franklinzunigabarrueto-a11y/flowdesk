@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
-import { ArrowRight, MessageSquare, Calendar, CheckSquare, BookOpen, Mic, Star, Zap } from 'lucide-react'
+import { ArrowRight, MessageSquare, Calendar, CheckSquare, BookOpen, Mic, Star, Zap, Camera } from 'lucide-react'
 
 // Colores de construcción
 const C = {
@@ -185,21 +185,24 @@ export default function LandingPage() {
             {[
               {
                 n: '01', color: C.orange,
-                title: 'Escribe o graba',
-                desc: 'Desde WhatsApp, donde ya estás. Un texto rápido o un audio mientras caminas la obra — como siempre lo has hecho.',
-                icon: <MessageSquare size={22} />,
+                title: 'Escribe, graba o fotografía',
+                desc: 'Desde WhatsApp, donde ya estás. Texto, audio o una foto de lo que ves en terreno — fisuras, materiales, mediciones — todo llega directo a tu panel.',
+                icon: <Camera size={22} />,
+                badge: '📸 Foto de obra',
               },
               {
                 n: '02', color: C.orange,
                 title: 'La IA lo entiende',
-                desc: 'FlowDesk detecta si es una tarea, un evento o una nota y lo clasifica solo. Sin comandos, sin estructuras especiales.',
+                desc: 'FlowDesk detecta si es una tarea, un evento, una nota o una observación con foto. Sin comandos, sin estructuras especiales.',
                 icon: <Zap size={22} />,
+                badge: null,
               },
               {
                 n: '03', color: C.orange,
                 title: 'Se sincroniza todo',
-                desc: 'El evento va a Google Calendar, la tarea aparece en tu panel y el audio queda transcrito. Todo en su lugar.',
+                desc: 'El evento va a Google Calendar, la tarea aparece con su foto adjunta y el audio queda transcrito. Todo en su lugar.',
                 icon: <Calendar size={22} />,
+                badge: null,
               },
             ].map((step) => (
               <div key={step.n} style={{
@@ -224,6 +227,16 @@ export default function LandingPage() {
                 </div>
                 <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '0.6rem' }}>{step.title}</h3>
                 <p style={{ fontSize: '0.875rem', color: C.muted, lineHeight: 1.65 }}>{step.desc}</p>
+                {(step as any).badge && (
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '5px',
+                    marginTop: '1rem', padding: '4px 12px', borderRadius: '100px',
+                    background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.3)',
+                    fontSize: '0.75rem', fontWeight: 600, color: C.orange,
+                  }}>
+                    {(step as any).badge}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -242,15 +255,30 @@ export default function LandingPage() {
             </h2>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem' }}>
-            {[
+            {([
+              { icon: <Camera size={20} />, color: C.orange, title: 'Fotos de obra', desc: 'Saca una foto desde WhatsApp — fisura, material, medición — y queda adjunta a la tarea o evento automáticamente.', highlight: true },
               { icon: <CheckSquare size={20} />, color: C.orange, title: 'Gestión de tareas', desc: 'Crea y completa pendientes desde el chat. La IA detecta cuando algo ya está listo.' },
               { icon: <Calendar size={20} />, color: C.orange, title: 'Google Calendar', desc: 'Agenda reuniones y visitas de inspección directamente desde WhatsApp.' },
               { icon: <BookOpen size={20} />, color: C.orange, title: 'Bitácora de obra', desc: 'Registra decisiones, observaciones y notas del día. Organizadas por fecha.' },
               { icon: <Mic size={20} />, color: C.orange, title: 'Mensajes de voz', desc: 'Habla, FlowDesk transcribe y clasifica. Ideal cuando tienes las manos ocupadas.' },
               { icon: <Zap size={20} />, color: C.orange, title: 'IA contextual', desc: 'Entiende frases naturales. No necesitas aprender comandos ni estructuras.' },
-              { icon: <MessageSquare size={20} />, color: C.orange, title: 'Solo WhatsApp', desc: 'Ninguna app nueva. Funciona donde ya te comunicas con tu equipo.' },
-            ].map((f, i) => (
-              <div key={i} style={{ padding: '1.4rem', background: C.surface, border: `1px solid ${C.border}`, borderRadius: '16px' }}>
+            ] as { icon: React.ReactNode; color: string; title: string; desc: string; highlight?: boolean }[]).map((f, i) => (
+              <div key={i} style={{
+                padding: '1.4rem', borderRadius: '16px',
+                background: f.highlight ? 'rgba(249,115,22,0.06)' : C.surface,
+                border: f.highlight ? `1.5px solid rgba(249,115,22,0.4)` : `1px solid ${C.border}`,
+                position: 'relative', overflow: 'hidden',
+              }}>
+                {f.highlight && (
+                  <div style={{
+                    position: 'absolute', top: '10px', right: '12px',
+                    fontSize: '0.6rem', fontWeight: 700, color: C.orange,
+                    background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.3)',
+                    padding: '2px 8px', borderRadius: '100px', letterSpacing: '0.04em', textTransform: 'uppercase',
+                  }}>
+                    Diferenciador
+                  </div>
+                )}
                 <div style={{
                   width: '40px', height: '40px', borderRadius: '10px',
                   background: 'rgba(249,115,22,0.1)',
