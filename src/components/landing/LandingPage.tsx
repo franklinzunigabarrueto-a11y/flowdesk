@@ -392,7 +392,7 @@ function LogoMark() {
 
 function LogoSVG({ size = 36 }: { size?: number }) {
   return (
-    <img src="/logo.png?v=3" width={size} height={size} alt="FlowDesk" style={{ display: 'block', flexShrink: 0 }} />
+    <img src="/logo.png?v=4" width={size} height={size} alt="FlowDesk" style={{ display: 'block', flexShrink: 0 }} />
   )
 }
 

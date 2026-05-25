@@ -84,7 +84,7 @@ export default function OnboardingPage() {
       }}>
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '2rem' }}>
-          <img src="/logo.png?v=3" width="36" height="36" alt="FlowDesk" style={{ display: 'block', flexShrink: 0 }} />
+          <img src="/logo.png?v=4" width="36" height="36" alt="FlowDesk" style={{ display: 'block', flexShrink: 0 }} />
           <div>
             <span style={{ fontSize: '1.1rem', fontWeight: 800, display: 'block', lineHeight: 1 }}>
               Flow<span style={{ color: 'var(--primary)' }}>Desk</span>
