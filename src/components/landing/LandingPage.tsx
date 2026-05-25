@@ -661,7 +661,7 @@ function ChaosSide() {
   return (
     <div style={{ width: '100%', height: '100%', overflow: 'hidden' }}>
       <img
-        src="/chaos-notebook.png"
+        src="/chaos-notebook.jpg"
         alt="Libreta de obra desorganizada"
         style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }}
       />
