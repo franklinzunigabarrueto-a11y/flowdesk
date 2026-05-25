@@ -22,7 +22,14 @@ export async function GET(request: Request) {
           google_refresh_token: session.provider_refresh_token,
         }, { onConflict: 'id' })
       }
-      return NextResponse.redirect(`${origin}${next}`)
+      const { data: profile } = await supabase
+        .from('users')
+        .select('onboarding_completed')
+        .eq('id', session.user.id)
+        .single()
+
+      const destination = profile?.onboarding_completed ? '/dashboard' : '/onboarding'
+      return NextResponse.redirect(`${origin}${destination}`)
     }
   }
 
