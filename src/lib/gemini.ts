@@ -1,10 +1,11 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenAI } from '@google/genai'
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! })
+const MODEL = 'gemini-2.0-flash'
 
 export type IntentItem = {
   type: 'task' | 'event' | 'edit_event' | 'also_calendar' | 'pending_image' | 'needs_image' | 'awaiting_image' | 'diary' | 'task_complete' | 'greeting' | 'off_topic' | 'unknown'
-  needs_info?: string[] // campos que faltan para completar la acción
+  needs_info?: string[]
   data: {
     title?: string
     description?: string
@@ -109,9 +110,7 @@ export async function analyzeMessage(
   userName = '',
   hasImage = false
 ): Promise<MessageIntent> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
   const utcOffset = getUtcOffset(timezone)
-
   const now = new Date()
   const currentHour = parseInt(now.toLocaleTimeString('en-US', { hour: '2-digit', hour12: false, timeZone: timezone }))
   const timeOfDay = currentHour < 12 ? 'mañana' : currentHour < 19 ? 'tarde' : 'noche'
@@ -129,8 +128,8 @@ Mensaje del usuario: "${message}"
 
 Responde solo con el JSON.`
 
-  const result = await model.generateContent(prompt)
-  const text = result.response.text().trim()
+  const response = await genAI.models.generateContent({ model: MODEL, contents: prompt })
+  const text = (response.text ?? '').trim()
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new Error('Respuesta de Gemini no contiene JSON válido')
   return JSON.parse(jsonMatch[0]) as MessageIntent
@@ -142,7 +141,6 @@ export async function completePendingItems(
   currentDate: string,
   timezone = 'America/Santiago'
 ): Promise<{ completed: IntentItem[]; stillPending: IntentItem[]; response: string }> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
   const utcOffset = getUtcOffset(timezone)
 
   const pendingSummary = pendingItems.map(item =>
@@ -177,8 +175,8 @@ Responde SOLO con JSON:
   "response": "Confirmación de lo agendado. Si quedan pendientes, pregunta solo por ellos."
 }`
 
-  const result = await model.generateContent(prompt)
-  const text = result.response.text().trim()
+  const response = await genAI.models.generateContent({ model: MODEL, contents: prompt })
+  const text = (response.text ?? '').trim()
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new Error('No JSON en respuesta de completePendingItems')
 
@@ -191,10 +189,14 @@ Responde SOLO con JSON:
 }
 
 export async function analyzeImageForQuestion(imageBase64: string, mimeType: string): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
-  const result = await model.generateContent([
-    { inlineData: { data: imageBase64, mimeType } },
-    `Eres un asistente de productividad para profesionales de construcción en Chile. El usuario envió esta foto sin texto.
+  const response = await genAI.models.generateContent({
+    model: MODEL,
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          { inlineData: { data: imageBase64, mimeType } },
+          { text: `Eres un asistente de productividad para profesionales de construcción en Chile. El usuario envió esta foto sin texto.
 
 Genera una pregunta corta y cordial para entender qué necesita hacer con la foto. Debe:
 - Describir brevemente lo que ves (ej: "esa fisura en el muro", "los materiales en terreno", "ese documento", "esa instalación")
@@ -206,25 +208,33 @@ Ejemplos:
 "¿Qué pasa con ese hormigonado? ¿Lo agendo o lo dejo como pendiente?"
 "¿Qué necesitas hacer con ese material?"
 
-Solo devuelve la pregunta, sin comentarios adicionales.`,
-  ])
-  return result.response.text().trim()
+Solo devuelve la pregunta, sin comentarios adicionales.` }
+        ]
+      }
+    ]
+  })
+  return (response.text ?? '').trim()
 }
 
 export async function transcribeAudio(audioBase64: string, mimeType: string): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
-  // Strip codec suffix — Gemini rejects "audio/ogg; codecs=opus", needs "audio/ogg"
   const normalizedMimeType = mimeType.split(';')[0].trim()
   console.log('[transcribeAudio] mimeType original:', mimeType, '→ normalizado:', normalizedMimeType)
-  const result = await model.generateContent([
-    { inlineData: { data: audioBase64, mimeType: normalizedMimeType } },
-    'Transcribe este audio en español de Chile. Es probable que el hablante sea un profesional de construcción. Términos comunes: ITO (Inspección Técnica de Obra), HH (horas hombre), faena, hormigonado, moldajes, cuadrilla, topógrafo, cubicación, subcontrato, replanteo, partida, avance de obra. Transcribe con precisión, respetando siglas y términos técnicos. Solo devuelve el texto transcrito, sin comentarios.',
-  ])
-  return result.response.text().trim()
+  const response = await genAI.models.generateContent({
+    model: MODEL,
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          { inlineData: { data: audioBase64, mimeType: normalizedMimeType } },
+          { text: 'Transcribe este audio en español de Chile. Es probable que el hablante sea un profesional de construcción. Términos comunes: ITO (Inspección Técnica de Obra), HH (horas hombre), faena, hormigonado, moldajes, cuadrilla, topógrafo, cubicación, subcontrato, replanteo, partida, avance de obra. Transcribe con precisión, respetando siglas y términos técnicos. Solo devuelve el texto transcrito, sin comentarios.' }
+        ]
+      }
+    ]
+  })
+  return (response.text ?? '').trim()
 }
 
 function getUtcOffset(timezone: string): string {
-  // Calcular el offset real del timezone del usuario, no del servidor
   const now = new Date()
   const utcDate = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }))
   const tzDate = new Date(now.toLocaleString('en-US', { timeZone: timezone }))
