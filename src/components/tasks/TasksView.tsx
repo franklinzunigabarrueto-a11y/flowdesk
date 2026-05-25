@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, CheckCircle, Circle, Clock, Flag, Trash2, X } from 'lucide-react'
+import { Plus, CheckCircle, Circle, Clock, Flag, Trash2, X, Pencil, Check } from 'lucide-react'
 import { Task, TaskStatus, TaskPriority } from '@/types'
 import { formatDate } from '@/lib/utils'
 
@@ -37,6 +37,9 @@ export default function TasksView() {
     return () => window.removeEventListener('keydown', handler)
   }, [lightboxUrl, closeLightbox])
   const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium' as TaskPriority, due_date: '' })
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editDraft, setEditDraft] = useState({ title: '', description: '', priority: 'medium' as TaskPriority, due_date: '' })
+  const [editSaving, setEditSaving] = useState(false)
 
   useEffect(() => {
     fetchTasks()
@@ -83,6 +86,40 @@ export default function TasksView() {
       setTasks(prev => [data.task, ...prev])
       setNewTask({ title: '', description: '', priority: 'medium', due_date: '' })
       setShowForm(false)
+    }
+  }
+
+  function startEdit(task: Task) {
+    setEditDraft({
+      title: task.title,
+      description: task.description || '',
+      priority: task.priority,
+      due_date: task.due_date || '',
+    })
+    setEditingId(task.id)
+  }
+
+  async function saveEdit(taskId: string) {
+    if (!editDraft.title.trim()) return
+    setEditSaving(true)
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: editDraft.title,
+          description: editDraft.description,
+          priority: editDraft.priority,
+          due_date: editDraft.due_date || null,
+        }),
+      })
+      const data = await res.json()
+      if (data.task) {
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...data.task } : t))
+      }
+      setEditingId(null)
+    } finally {
+      setEditSaving(false)
     }
   }
 
@@ -266,71 +303,78 @@ export default function TasksView() {
               opacity: task.status === 'completed' ? 0.55 : 1,
               transition: 'all 0.2s'
             }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                <button
-                  onClick={() => toggleTask(task)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', flexShrink: 0, marginTop: '1px' }}
-                >
-                  {task.status === 'completed'
-                    ? <CheckCircle size={20} color="var(--success)" />
-                    : <Circle size={20} color="var(--text-muted)" />
-                  }
-                </button>
-
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{
-                    fontSize: '0.9rem', fontWeight: 500,
-                    textDecoration: task.status === 'completed' ? 'line-through' : 'none',
-                    color: task.status === 'completed' ? 'var(--text-muted)' : 'var(--foreground)'
-                  }}>
-                    {task.title}
-                  </p>
-                  {task.description && (
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      {task.description}
-                    </p>
-                  )}
-                  <div style={{ display: 'flex', gap: '12px', marginTop: '8px', alignItems: 'center' }}>
-                    <span style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '4px',
-                      fontSize: '0.72rem', color: PRIORITY_COLORS[task.priority],
-                      background: `${PRIORITY_COLORS[task.priority]}15`,
-                      padding: '2px 8px', borderRadius: '100px'
-                    }}>
-                      <Flag size={10} /> {PRIORITY_LABELS[task.priority]}
-                    </span>
-                    {task.due_date && (
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: '4px',
-                        fontSize: '0.72rem', color: 'var(--text-muted)'
-                      }}>
-                        <Clock size={10} /> {formatDate(task.due_date)}
-                      </span>
-                    )}
+              {editingId === task.id ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <input autoFocus value={editDraft.title}
+                    onChange={e => setEditDraft(p => ({ ...p, title: e.target.value }))}
+                    onKeyDown={e => { if (e.key === 'Enter') saveEdit(task.id); if (e.key === 'Escape') setEditingId(null) }}
+                    style={{ padding: '8px 12px', borderRadius: '9px', border: '1px solid var(--primary)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.9rem', fontWeight: 500, outline: 'none' }}
+                  />
+                  <textarea value={editDraft.description} placeholder="Descripción (opcional)" rows={2}
+                    onChange={e => setEditDraft(p => ({ ...p, description: e.target.value }))}
+                    style={{ padding: '8px 12px', borderRadius: '9px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.85rem', outline: 'none', resize: 'vertical' }}
+                  />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <select value={editDraft.priority} onChange={e => setEditDraft(p => ({ ...p, priority: e.target.value as TaskPriority }))}
+                      style={{ padding: '8px 12px', borderRadius: '9px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.85rem', outline: 'none' }}
+                    >
+                      <option value="low">Prioridad baja</option>
+                      <option value="medium">Prioridad media</option>
+                      <option value="high">Prioridad alta</option>
+                    </select>
+                    <input type="date" value={editDraft.due_date}
+                      onChange={e => setEditDraft(p => ({ ...p, due_date: e.target.value }))}
+                      style={{ padding: '8px 12px', borderRadius: '9px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.85rem', outline: 'none' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                    <button onClick={() => setEditingId(null)} style={{ padding: '6px 14px', borderRadius: '8px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.82rem' }}>Cancelar</button>
+                    <button onClick={() => saveEdit(task.id)} disabled={editSaving} style={{ padding: '6px 16px', borderRadius: '8px', background: 'var(--primary)', border: 'none', color: 'white', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <Check size={13} /> {editSaving ? 'Guardando...' : 'Guardar'}
+                    </button>
                   </div>
                 </div>
-
-                <button
-                  onClick={() => deleteTask(task.id)}
-                  style={{
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    color: 'var(--text-muted)', padding: '4px', flexShrink: 0,
-                    opacity: 0.5, transition: 'opacity 0.2s'
-                  }}
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-
-              {(task as any).image_url && (
-                <div style={{ marginTop: '10px', maxWidth: '360px' }}>
-                  <img
-                    src={(task as any).image_url}
-                    alt="Adjunto"
-                    onClick={() => setLightboxUrl((task as any).image_url)}
-                    style={{ width: '100%', maxHeight: '120px', objectFit: 'cover', display: 'block', borderRadius: '10px', border: '1px solid var(--border)', cursor: 'zoom-in', transition: 'opacity 0.15s' }}
-                  />
-                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                    <button onClick={() => toggleTask(task)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', flexShrink: 0, marginTop: '1px' }}>
+                      {task.status === 'completed' ? <CheckCircle size={20} color="var(--success)" /> : <Circle size={20} color="var(--text-muted)" />}
+                    </button>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: '0.9rem', fontWeight: 500, textDecoration: task.status === 'completed' ? 'line-through' : 'none', color: task.status === 'completed' ? 'var(--text-muted)' : 'var(--foreground)' }}>
+                        {task.title}
+                      </p>
+                      {task.description && (
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>{task.description}</p>
+                      )}
+                      <div style={{ display: 'flex', gap: '12px', marginTop: '8px', alignItems: 'center' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: PRIORITY_COLORS[task.priority], background: `${PRIORITY_COLORS[task.priority]}15`, padding: '2px 8px', borderRadius: '100px' }}>
+                          <Flag size={10} /> {PRIORITY_LABELS[task.priority]}
+                        </span>
+                        {task.due_date && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                            <Clock size={10} /> {formatDate(task.due_date)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                      <button onClick={() => startEdit(task)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', borderRadius: '6px', opacity: 0.6 }} title="Editar tarea">
+                        <Pencil size={14} />
+                      </button>
+                      <button onClick={() => deleteTask(task.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', flexShrink: 0, opacity: 0.5 }}>
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                  {(task as any).image_url && (
+                    <div style={{ marginTop: '10px', maxWidth: '360px' }}>
+                      <img src={(task as any).image_url} alt="Adjunto" onClick={() => setLightboxUrl((task as any).image_url)}
+                        style={{ width: '100%', maxHeight: '120px', objectFit: 'cover', display: 'block', borderRadius: '10px', border: '1px solid var(--border)', cursor: 'zoom-in' }}
+                      />
+                    </div>
+                  )}
+                </>
               )}
             </div>
           ))}

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Clock, Trash2, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Clock, Trash2, X, Pencil, Check } from 'lucide-react'
 import { CalendarEvent } from '@/types'
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
@@ -20,6 +20,9 @@ export default function CalendarView() {
   const [showForm, setShowForm] = useState(false)
   const [newEvent, setNewEvent] = useState({ title: '', date: '', time: '', description: '' })
   const [saving, setSaving] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editDraft, setEditDraft] = useState({ title: '', date: '', time: '', description: '' })
+  const [editSaving, setEditSaving] = useState(false)
 
   const closeLightbox = useCallback(() => setLightboxUrl(null), [])
 
@@ -76,6 +79,43 @@ export default function CalendarView() {
       setEvents(prev => prev.filter(e => e.id !== eventId))
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  function startEdit(event: CalendarEvent) {
+    const d = new Date(event.start)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    setEditDraft({
+      title: event.title,
+      date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+      time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+      description: event.description || '',
+    })
+    setEditingId(event.id)
+  }
+
+  async function saveEdit(eventId: string) {
+    if (!editDraft.title.trim() || !editDraft.date || !editDraft.time) return
+    setEditSaving(true)
+    try {
+      const start_time = `${editDraft.date}T${editDraft.time}:00`
+      const res = await fetch(`/api/events/${eventId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: editDraft.title, start_time, description: editDraft.description }),
+      })
+      const data = await res.json()
+      if (data.event) {
+        setEvents(prev => prev.map(e => e.id === eventId ? {
+          ...e,
+          title: editDraft.title,
+          start: start_time,
+          description: editDraft.description,
+        } : e))
+      }
+      setEditingId(null)
+    } finally {
+      setEditSaving(false)
     }
   }
 
@@ -330,48 +370,65 @@ export default function CalendarView() {
                     marginBottom: '8px',
                     borderLeft: `3px solid ${event.color || EVENT_COLORS[i % EVENT_COLORS.length]}`
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-                      <p style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '4px' }}>
-                        {event.title}
-                      </p>
-                      <button
-                        onClick={() => deleteEvent(event.id)}
-                        disabled={deletingId === event.id}
-                        style={{
-                          background: 'transparent', border: 'none',
-                          cursor: 'pointer', color: 'var(--text-muted)',
-                          padding: '2px', borderRadius: '6px',
-                          opacity: deletingId === event.id ? 0.4 : 1,
-                          flexShrink: 0,
-                          transition: 'color 0.2s'
-                        }}
-                        title="Eliminar evento"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
-                      <Clock size={12} />
-                      {new Date(event.start).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                      {event.end && ` → ${new Date(event.end).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`}
-                    </div>
-                    {event.description && (
-                      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-                        {event.description}
-                      </p>
-                    )}
-                    {(event as any).image_url && (
-                      <img
-                        src={(event as any).image_url}
-                        alt="Adjunto"
-                        onClick={() => setLightboxUrl((event as any).image_url)}
-                        style={{
-                          width: '100%', maxHeight: '120px', objectFit: 'cover',
-                          borderRadius: '8px', marginTop: '8px',
-                          border: '1px solid var(--border)',
-                          cursor: 'zoom-in', transition: 'opacity 0.15s',
-                        }}
-                      />
+                    {editingId === event.id ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <input
+                          autoFocus
+                          value={editDraft.title}
+                          onChange={e => setEditDraft(p => ({ ...p, title: e.target.value }))}
+                          onKeyDown={e => { if (e.key === 'Enter') saveEdit(event.id); if (e.key === 'Escape') setEditingId(null) }}
+                          style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--primary)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.875rem', outline: 'none', fontWeight: 600 }}
+                        />
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                          <input type="date" value={editDraft.date}
+                            onChange={e => setEditDraft(p => ({ ...p, date: e.target.value }))}
+                            style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.8rem', outline: 'none' }}
+                          />
+                          <input type="time" value={editDraft.time}
+                            onChange={e => setEditDraft(p => ({ ...p, time: e.target.value }))}
+                            style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.8rem', outline: 'none' }}
+                          />
+                        </div>
+                        <input value={editDraft.description} placeholder="Descripción (opcional)"
+                          onChange={e => setEditDraft(p => ({ ...p, description: e.target.value }))}
+                          style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.8rem', outline: 'none' }}
+                        />
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                          <button onClick={() => setEditingId(null)} style={{ padding: '5px 12px', borderRadius: '7px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.78rem' }}>Cancelar</button>
+                          <button onClick={() => saveEdit(event.id)} disabled={editSaving} style={{ padding: '5px 14px', borderRadius: '7px', background: 'var(--primary)', border: 'none', color: 'white', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <Check size={13} /> {editSaving ? 'Guardando...' : 'Guardar'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+                          <p style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '4px', flex: 1 }}>
+                            {event.title}
+                          </p>
+                          <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                            <button onClick={() => startEdit(event)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', borderRadius: '6px' }} title="Editar evento">
+                              <Pencil size={13} />
+                            </button>
+                            <button onClick={() => deleteEvent(event.id)} disabled={deletingId === event.id} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', borderRadius: '6px', opacity: deletingId === event.id ? 0.4 : 1 }} title="Eliminar evento">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                          <Clock size={12} />
+                          {new Date(event.start).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                          {event.end && ` → ${new Date(event.end).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`}
+                        </div>
+                        {event.description && (
+                          <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '6px' }}>{event.description}</p>
+                        )}
+                        {(event as any).image_url && (
+                          <img src={(event as any).image_url} alt="Adjunto" onClick={() => setLightboxUrl((event as any).image_url)}
+                            style={{ width: '100%', maxHeight: '120px', objectFit: 'cover', borderRadius: '8px', marginTop: '8px', border: '1px solid var(--border)', cursor: 'zoom-in' }}
+                          />
+                        )}
+                      </>
                     )}
                   </div>
                 ))
