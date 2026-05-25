@@ -256,29 +256,19 @@ export default function LandingPage() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem' }}>
             {([
-              { icon: <Camera size={20} />, color: C.orange, title: 'Fotos de obra', desc: 'Saca una foto desde WhatsApp — fisura, material, medición — y queda adjunta a la tarea o evento automáticamente.', highlight: true },
+              { icon: <Camera size={20} />, color: C.orange, title: 'Fotos de obra', desc: 'Saca una foto desde WhatsApp — fisura, material, medición — y queda adjunta a la tarea o evento automáticamente.' },
               { icon: <CheckSquare size={20} />, color: C.orange, title: 'Gestión de tareas', desc: 'Crea y completa pendientes desde el chat. La IA detecta cuando algo ya está listo.' },
               { icon: <Calendar size={20} />, color: C.orange, title: 'Google Calendar', desc: 'Agenda reuniones y visitas de inspección directamente desde WhatsApp.' },
               { icon: <BookOpen size={20} />, color: C.orange, title: 'Bitácora de obra', desc: 'Registra decisiones, observaciones y notas del día. Organizadas por fecha.' },
               { icon: <Mic size={20} />, color: C.orange, title: 'Mensajes de voz', desc: 'Habla, FlowDesk transcribe y clasifica. Ideal cuando tienes las manos ocupadas.' },
               { icon: <Zap size={20} />, color: C.orange, title: 'IA contextual', desc: 'Entiende frases naturales. No necesitas aprender comandos ni estructuras.' },
-            ] as { icon: React.ReactNode; color: string; title: string; desc: string; highlight?: boolean }[]).map((f, i) => (
+            ] as { icon: React.ReactNode; color: string; title: string; desc: string }[]).map((f, i) => (
               <div key={i} style={{
                 padding: '1.4rem', borderRadius: '16px',
-                background: f.highlight ? 'rgba(249,115,22,0.06)' : C.surface,
-                border: f.highlight ? `1.5px solid rgba(249,115,22,0.4)` : `1px solid ${C.border}`,
+                background: C.surface,
+                border: `1px solid ${C.border}`,
                 position: 'relative', overflow: 'hidden',
               }}>
-                {f.highlight && (
-                  <div style={{
-                    position: 'absolute', top: '10px', right: '12px',
-                    fontSize: '0.6rem', fontWeight: 700, color: C.orange,
-                    background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.3)',
-                    padding: '2px 8px', borderRadius: '100px', letterSpacing: '0.04em', textTransform: 'uppercase',
-                  }}>
-                    Diferenciador
-                  </div>
-                )}
                 <div style={{
                   width: '40px', height: '40px', borderRadius: '10px',
                   background: 'rgba(249,115,22,0.1)',
@@ -402,7 +392,7 @@ function LogoMark() {
 
 function LogoSVG({ size = 36 }: { size?: number }) {
   return (
-    <img src="/logo.png?v=2" width={size} height={size} alt="FlowDesk" style={{ display: 'block', flexShrink: 0 }} />
+    <img src="/logo.png?v=3" width={size} height={size} alt="FlowDesk" style={{ display: 'block', flexShrink: 0 }} />
   )
 }
 
