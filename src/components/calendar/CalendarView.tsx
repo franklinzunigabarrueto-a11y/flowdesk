@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Clock, Trash2, X, Pencil, Check } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { ChevronLeft, ChevronRight, Plus, Clock, Trash2, X, Pencil, Check, Paperclip } from 'lucide-react'
 import { CalendarEvent } from '@/types'
+import DatePicker from '@/components/ui/DatePicker'
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
@@ -23,6 +24,12 @@ export default function CalendarView() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState({ title: '', date: '', time: '', description: '' })
   const [editSaving, setEditSaving] = useState(false)
+  const [editImageUrl, setEditImageUrl] = useState<string | null>(null)
+  const [editUploading, setEditUploading] = useState(false)
+  const [editDragOver, setEditDragOver] = useState(false)
+  const [createImageUrl, setCreateImageUrl] = useState<string | null>(null)
+  const [createUploading, setCreateUploading] = useState(false)
+  const [createDragOver, setCreateDragOver] = useState(false)
 
   const closeLightbox = useCallback(() => setLightboxUrl(null), [])
 
@@ -62,9 +69,10 @@ export default function CalendarView() {
       await fetch('/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newEvent.title, description: newEvent.description, start_time: startTime }),
+        body: JSON.stringify({ title: newEvent.title, description: newEvent.description, start_time: startTime, image_url: createImageUrl }),
       })
       setNewEvent({ title: '', date: '', time: '', description: '' })
+      setCreateImageUrl(null)
       setShowForm(false)
       fetchEvents()
     } finally {
@@ -82,6 +90,18 @@ export default function CalendarView() {
     }
   }
 
+  async function uploadFile(file: File, setUrl: (u: string) => void, setUploading: (b: boolean) => void) {
+    if (file.size > 2 * 1024 * 1024) { alert('El archivo supera 2 MB'); return }
+    setUploading(true)
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await fetch('/api/upload', { method: 'POST', body: fd })
+    const data = await res.json()
+    if (data.url) setUrl(data.url)
+    else alert(data.error || 'Error al subir archivo')
+    setUploading(false)
+  }
+
   function startEdit(event: CalendarEvent) {
     const d = new Date(event.start)
     const pad = (n: number) => String(n).padStart(2, '0')
@@ -91,6 +111,7 @@ export default function CalendarView() {
       time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
       description: event.description || '',
     })
+    setEditImageUrl((event as any).image_url || null)
     setEditingId(event.id)
   }
 
@@ -102,7 +123,7 @@ export default function CalendarView() {
       const res = await fetch(`/api/events/${eventId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: editDraft.title, start_time, description: editDraft.description }),
+        body: JSON.stringify({ title: editDraft.title, start_time, description: editDraft.description, image_url: editImageUrl }),
       })
       const data = await res.json()
       if (data.event) {
@@ -111,7 +132,8 @@ export default function CalendarView() {
           title: editDraft.title,
           start: start_time,
           description: editDraft.description,
-        } : e))
+          image_url: editImageUrl,
+        } as any : e))
       }
       setEditingId(null)
     } finally {
@@ -202,10 +224,7 @@ export default function CalendarView() {
               style={{ padding: '10px 14px', borderRadius: '10px', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--foreground)', fontSize: '0.95rem', outline: 'none' }}
             />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <input type="date" value={newEvent.date} required
-                onChange={e => setNewEvent(p => ({ ...p, date: e.target.value }))}
-                style={{ padding: '10px 14px', borderRadius: '10px', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--foreground)', fontSize: '0.875rem', outline: 'none' }}
-              />
+              <DatePicker value={newEvent.date} onChange={d => setNewEvent(p => ({ ...p, date: d }))} />
               <input type="time" value={newEvent.time} required
                 onChange={e => setNewEvent(p => ({ ...p, time: e.target.value }))}
                 style={{ padding: '10px 14px', borderRadius: '10px', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--foreground)', fontSize: '0.875rem', outline: 'none' }}
@@ -215,8 +234,17 @@ export default function CalendarView() {
               onChange={e => setNewEvent(p => ({ ...p, description: e.target.value }))}
               style={{ padding: '10px 14px', borderRadius: '10px', background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--foreground)', fontSize: '0.875rem', outline: 'none', resize: 'vertical' }}
             />
+            <DropZone
+              imageUrl={createImageUrl}
+              uploading={createUploading}
+              dragOver={createDragOver}
+              onFile={f => uploadFile(f, setCreateImageUrl, setCreateUploading)}
+              onDragOver={() => setCreateDragOver(true)}
+              onDragLeave={() => setCreateDragOver(false)}
+              onRemove={() => setCreateImageUrl(null)}
+            />
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <button type="button" onClick={() => setShowForm(false)} style={{ padding: '8px 16px', borderRadius: '8px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.875rem' }}>Cancelar</button>
+              <button type="button" onClick={() => { setShowForm(false); setCreateImageUrl(null) }} style={{ padding: '8px 16px', borderRadius: '8px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.875rem' }}>Cancelar</button>
               <button type="submit" disabled={saving} style={{ padding: '8px 20px', borderRadius: '8px', background: 'var(--primary)', border: 'none', color: 'white', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600 }}>
                 {saving ? 'Guardando...' : 'Crear evento'}
               </button>
@@ -380,18 +408,24 @@ export default function CalendarView() {
                           style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--primary)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.875rem', outline: 'none', fontWeight: 600 }}
                         />
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                          <input type="date" value={editDraft.date}
-                            onChange={e => setEditDraft(p => ({ ...p, date: e.target.value }))}
-                            style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.8rem', outline: 'none' }}
-                          />
+                          <DatePicker value={editDraft.date} onChange={d => setEditDraft(p => ({ ...p, date: d }))} />
                           <input type="time" value={editDraft.time}
                             onChange={e => setEditDraft(p => ({ ...p, time: e.target.value }))}
-                            style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.8rem', outline: 'none' }}
+                            style={{ padding: '6px 10px', borderRadius: '9px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.8rem', outline: 'none' }}
                           />
                         </div>
                         <input value={editDraft.description} placeholder="Descripción (opcional)"
                           onChange={e => setEditDraft(p => ({ ...p, description: e.target.value }))}
-                          style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.8rem', outline: 'none' }}
+                          style={{ padding: '6px 10px', borderRadius: '9px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.8rem', outline: 'none' }}
+                        />
+                        <DropZone
+                          imageUrl={editImageUrl}
+                          uploading={editUploading}
+                          dragOver={editDragOver}
+                          onFile={f => uploadFile(f, setEditImageUrl, setEditUploading)}
+                          onDragOver={() => setEditDragOver(true)}
+                          onDragLeave={() => setEditDragOver(false)}
+                          onRemove={() => setEditImageUrl(null)}
                         />
                         <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                           <button onClick={() => setEditingId(null)} style={{ padding: '5px 12px', borderRadius: '7px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.78rem' }}>Cancelar</button>
@@ -437,6 +471,67 @@ export default function CalendarView() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+interface DropZoneProps {
+  imageUrl: string | null
+  uploading: boolean
+  dragOver: boolean
+  onFile: (f: File) => void
+  onDragOver: () => void
+  onDragLeave: () => void
+  onRemove: () => void
+}
+
+function DropZone({ imageUrl, uploading, dragOver, onFile, onDragOver, onDragLeave, onRemove }: DropZoneProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    onDragLeave()
+    const file = e.dataTransfer.files[0]
+    if (file) onFile(file)
+  }
+
+  return (
+    <div>
+      {imageUrl ? (
+        <div style={{ position: 'relative', display: 'inline-block' }}>
+          <img src={imageUrl} alt="Adjunto" style={{ maxHeight: '100px', borderRadius: '8px', border: '1px solid var(--border)', display: 'block' }} />
+          <button type="button" onClick={onRemove} style={{
+            position: 'absolute', top: '-6px', right: '-6px',
+            width: '20px', height: '20px', borderRadius: '50%',
+            background: '#ef4444', border: 'none', color: 'white',
+            cursor: 'pointer', fontSize: '0.7rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>✕</button>
+        </div>
+      ) : (
+        <div
+          onDragOver={e => { e.preventDefault(); onDragOver() }}
+          onDragLeave={onDragLeave}
+          onDrop={handleDrop}
+          onClick={() => inputRef.current?.click()}
+          style={{
+            border: `1.5px dashed ${dragOver ? 'var(--primary)' : 'var(--border)'}`,
+            borderRadius: '9px',
+            padding: '10px 14px',
+            display: 'flex', alignItems: 'center', gap: '8px',
+            cursor: 'pointer',
+            background: dragOver ? 'rgba(249,115,22,0.05)' : 'transparent',
+            transition: 'all 0.15s',
+            color: 'var(--text-muted)',
+            fontSize: '0.8rem',
+          }}
+        >
+          <Paperclip size={14} />
+          {uploading ? 'Subiendo...' : 'Adjuntar archivo (máx. 2 MB) o arrastra aquí'}
+          <input ref={inputRef} type="file" accept="image/*,.pdf,.doc,.docx" style={{ display: 'none' }}
+            onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f) }}
+          />
+        </div>
+      )}
     </div>
   )
 }

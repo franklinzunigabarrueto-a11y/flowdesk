@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Plus, CheckCircle, Circle, Clock, Flag, Trash2, X, Pencil, Check } from 'lucide-react'
 import { Task, TaskStatus, TaskPriority } from '@/types'
 import { formatDate } from '@/lib/utils'
+import DatePicker from '@/components/ui/DatePicker'
 
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
   high: '#ef4444',
@@ -222,16 +223,7 @@ export default function TasksView() {
                 <option value="medium">Prioridad media</option>
                 <option value="high">Prioridad alta</option>
               </select>
-              <input
-                type="date"
-                value={newTask.due_date}
-                onChange={e => setNewTask(p => ({ ...p, due_date: e.target.value }))}
-                style={{
-                  padding: '10px 14px', borderRadius: '10px',
-                  background: 'var(--background)', border: '1px solid var(--border)',
-                  color: 'var(--foreground)', fontSize: '0.875rem', outline: 'none'
-                }}
-              />
+              <DatePicker value={newTask.due_date} onChange={d => setNewTask(p => ({ ...p, due_date: d }))} placeholder="Fecha límite" />
             </div>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
               <button type="button" onClick={() => setShowForm(false)} style={{
@@ -322,10 +314,7 @@ export default function TasksView() {
                       <option value="medium">Prioridad media</option>
                       <option value="high">Prioridad alta</option>
                     </select>
-                    <input type="date" value={editDraft.due_date}
-                      onChange={e => setEditDraft(p => ({ ...p, due_date: e.target.value }))}
-                      style={{ padding: '8px 12px', borderRadius: '9px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '0.85rem', outline: 'none' }}
-                    />
+                    <DatePicker value={editDraft.due_date} onChange={d => setEditDraft(p => ({ ...p, due_date: d }))} placeholder="Fecha límite" />
                   </div>
                   <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                     <button onClick={() => setEditingId(null)} style={{ padding: '6px 14px', borderRadius: '8px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.82rem' }}>Cancelar</button>
