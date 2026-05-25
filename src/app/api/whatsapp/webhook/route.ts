@@ -94,7 +94,7 @@ async function processItem(
 ) {
   switch (item.type) {
     case 'task': {
-      await supabase.from('tasks').insert({
+      const { error: taskError } = await supabase.from('tasks').insert({
         user_id: user.id,
         title: item.data.title || textContent.substring(0, 80),
         description: item.data.description,
@@ -104,6 +104,7 @@ async function processItem(
         whatsapp_message_id: messageId,
         image_url: imageUrl || null,
       })
+      if (taskError) console.error('[task insert error]', taskError)
       break
     }
 
@@ -138,7 +139,7 @@ async function processItem(
         }
       }
 
-      await supabase.from('calendar_events').insert({
+      const { error: eventError } = await supabase.from('calendar_events').insert({
         user_id: user.id,
         title: eventTitle,
         description: item.data.description,
@@ -148,6 +149,7 @@ async function processItem(
         whatsapp_message_id: messageId,
         image_url: imageUrl || null,
       })
+      if (eventError) console.error('[event insert error]', eventError)
       break
     }
 
