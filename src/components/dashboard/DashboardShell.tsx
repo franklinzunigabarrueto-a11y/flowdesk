@@ -42,18 +42,7 @@ export default function DashboardShell({ user, children }: Props) {
         {/* Logo */}
         <div style={{ padding: '0 1.25rem 1.5rem', borderBottom: '1px solid var(--border)', marginBottom: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <svg width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect width="36" height="36" rx="8" fill="#f97316"/>
-              <rect x="11" y="6" width="3.5" height="6" rx="1.75" stroke="white" strokeWidth="1.5"/>
-              <rect x="21.5" y="6" width="3.5" height="6" rx="1.75" stroke="white" strokeWidth="1.5"/>
-              <rect x="5" y="9" width="26" height="22" rx="3" stroke="white" strokeWidth="1.5"/>
-              <line x1="5" y1="15" x2="31" y2="15" stroke="white" strokeWidth="1.5"/>
-              <path d="M10.5 27C10.5 21 14 17.5 18 17.5C22 17.5 25.5 21 25.5 27" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-              <rect x="8" y="27" width="20" height="2.5" rx="1.25" stroke="white" strokeWidth="1.5"/>
-              <line x1="15" y1="20" x2="14.5" y2="26.5" stroke="white" strokeWidth="1" strokeLinecap="round"/>
-              <line x1="18" y1="18.5" x2="18" y2="26.5" stroke="white" strokeWidth="1" strokeLinecap="round"/>
-              <line x1="21" y1="20" x2="21.5" y2="26.5" stroke="white" strokeWidth="1" strokeLinecap="round"/>
-            </svg>
+            <img src="/logo.png" width="34" height="34" alt="FlowDesk" style={{ display: 'block', flexShrink: 0 }} />
             <div>
               <span style={{ fontSize: '1.05rem', fontWeight: 800, letterSpacing: '-0.02em', display: 'block', lineHeight: 1 }}>
                 Flow<span style={{ color: '#f97316' }}>Desk</span>

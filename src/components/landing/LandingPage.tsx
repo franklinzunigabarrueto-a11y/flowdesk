@@ -374,24 +374,7 @@ function LogoMark() {
 
 function LogoSVG({ size = 36 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="36" height="36" rx="8" fill="#f97316"/>
-      {/* Pines del calendario */}
-      <rect x="11" y="6" width="3.5" height="6" rx="1.75" stroke="white" strokeWidth="1.5"/>
-      <rect x="21.5" y="6" width="3.5" height="6" rx="1.75" stroke="white" strokeWidth="1.5"/>
-      {/* Marco calendario */}
-      <rect x="5" y="9" width="26" height="22" rx="3" stroke="white" strokeWidth="1.5"/>
-      {/* Línea divisoria del encabezado */}
-      <line x1="5" y1="15" x2="31" y2="15" stroke="white" strokeWidth="1.5"/>
-      {/* Domo del casco */}
-      <path d="M10.5 27C10.5 21 14 17.5 18 17.5C22 17.5 25.5 21 25.5 27" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-      {/* Ala del casco */}
-      <rect x="8" y="27" width="20" height="2.5" rx="1.25" stroke="white" strokeWidth="1.5"/>
-      {/* Ranuras de ventilación */}
-      <line x1="15" y1="20" x2="14.5" y2="26.5" stroke="white" strokeWidth="1" strokeLinecap="round"/>
-      <line x1="18" y1="18.5" x2="18" y2="26.5" stroke="white" strokeWidth="1" strokeLinecap="round"/>
-      <line x1="21" y1="20" x2="21.5" y2="26.5" stroke="white" strokeWidth="1" strokeLinecap="round"/>
-    </svg>
+    <img src="/logo.png" width={size} height={size} alt="FlowDesk" style={{ display: 'block', flexShrink: 0 }} />
   )
 }
 
