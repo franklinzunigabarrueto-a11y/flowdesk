@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { createPortal } from 'react-dom'
 
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 const DAYS_SHORT = ['Do','Lu','Ma','Mi','Ju','Vi','Sá']
@@ -16,12 +17,17 @@ interface Props {
 export default function DatePicker({ value, onChange, placeholder = 'Seleccionar fecha', style }: Props) {
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<Date>(() => value ? new Date(value + 'T12:00:00') : new Date())
-  const ref = useRef<HTMLDivElement>(null)
+  const [popupPos, setPopupPos] = useState({ top: 0, left: 0, width: 0 })
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const popupRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!open) return
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      if (
+        btnRef.current && !btnRef.current.contains(e.target as Node) &&
+        popupRef.current && !popupRef.current.contains(e.target as Node)
+      ) setOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -30,6 +36,14 @@ export default function DatePicker({ value, onChange, placeholder = 'Seleccionar
   useEffect(() => {
     if (value) setView(new Date(value + 'T12:00:00'))
   }, [value])
+
+  function openCalendar() {
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect()
+      setPopupPos({ top: rect.bottom + 6, left: rect.left, width: rect.width })
+    }
+    setOpen(o => !o)
+  }
 
   const year = view.getFullYear()
   const month = view.getMonth()
@@ -48,11 +62,62 @@ export default function DatePicker({ value, onChange, placeholder = 'Seleccionar
     setOpen(false)
   }
 
+  const popup = open && (
+    <div ref={popupRef} style={{
+      position: 'fixed',
+      top: popupPos.top,
+      left: popupPos.left,
+      zIndex: 9999,
+      background: 'var(--surface)', border: '1px solid var(--border)',
+      borderRadius: '14px', padding: '12px 12px 10px',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+      width: '230px', animation: 'fadeIn 0.15s ease',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+        <button type="button" onClick={() => setView(new Date(year, month - 1, 1))} style={navBtn}>
+          <ChevronLeft size={14} />
+        </button>
+        <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>{MONTHS[month]} {year}</span>
+        <button type="button" onClick={() => setView(new Date(year, month + 1, 1))} style={navBtn}>
+          <ChevronRight size={14} />
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: '4px' }}>
+        {DAYS_SHORT.map(d => (
+          <div key={d} style={{ textAlign: 'center', fontSize: '0.58rem', fontWeight: 600, color: 'var(--text-muted)', padding: '2px 0' }}>{d}</div>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
+        {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} />)}
+        {Array.from({ length: daysInMonth }).map((_, i) => {
+          const day = i + 1
+          const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+          const sel = dateStr === value
+          const isToday = dateStr === todayStr
+          return (
+            <button key={day} type="button" onClick={() => pick(day)} style={{
+              padding: '5px 2px', borderRadius: '7px', border: 'none', cursor: 'pointer',
+              fontSize: '0.75rem', fontWeight: sel || isToday ? 600 : 400, textAlign: 'center',
+              background: sel ? 'var(--primary)' : isToday ? 'rgba(249,115,22,0.12)' : 'transparent',
+              color: sel ? 'white' : isToday ? 'var(--primary)' : 'var(--foreground)',
+              transition: 'background 0.1s',
+            }}>
+              {day}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+
   return (
-    <div ref={ref} style={{ position: 'relative', ...style }}>
+    <div style={{ position: 'relative', ...style }}>
       <button
+        ref={btnRef}
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={openCalendar}
         style={{
           width: '100%', padding: '8px 12px', borderRadius: '9px',
           border: `1.5px solid ${open ? 'var(--primary)' : 'var(--border)'}`,
@@ -69,52 +134,7 @@ export default function DatePicker({ value, onChange, placeholder = 'Seleccionar
         </svg>
       </button>
 
-      {open && (
-        <div style={{
-          position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 200,
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: '14px', padding: '12px 12px 10px',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.14)',
-          width: '230px', animation: 'fadeIn 0.15s ease',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <button type="button" onClick={() => setView(new Date(year, month - 1, 1))} style={navBtn}>
-              <ChevronLeft size={14} />
-            </button>
-            <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>{MONTHS[month]} {year}</span>
-            <button type="button" onClick={() => setView(new Date(year, month + 1, 1))} style={navBtn}>
-              <ChevronRight size={14} />
-            </button>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: '4px' }}>
-            {DAYS_SHORT.map(d => (
-              <div key={d} style={{ textAlign: 'center', fontSize: '0.58rem', fontWeight: 600, color: 'var(--text-muted)', padding: '2px 0' }}>{d}</div>
-            ))}
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
-            {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} />)}
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-              const day = i + 1
-              const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-              const sel = dateStr === value
-              const isToday = dateStr === todayStr
-              return (
-                <button key={day} type="button" onClick={() => pick(day)} style={{
-                  padding: '5px 2px', borderRadius: '7px', border: 'none', cursor: 'pointer',
-                  fontSize: '0.75rem', fontWeight: sel || isToday ? 600 : 400, textAlign: 'center',
-                  background: sel ? 'var(--primary)' : isToday ? 'rgba(249,115,22,0.12)' : 'transparent',
-                  color: sel ? 'white' : isToday ? 'var(--primary)' : 'var(--foreground)',
-                  transition: 'background 0.1s',
-                }}>
-                  {day}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
+      {typeof document !== 'undefined' && popup && createPortal(popup, document.body)}
     </div>
   )
 }
