@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { ArrowRight, MessageSquare, Calendar, CheckSquare, BookOpen, Mic, Star, Zap } from 'lucide-react'
 
@@ -154,6 +154,19 @@ export default function LandingPage() {
             background: `radial-gradient(ellipse, ${C.orangeGlow} 0%, transparent 70%)`,
             filter: 'blur(15px)', pointerEvents: 'none',
           }} />
+        </div>
+      </section>
+
+      {/* ── COMPARATIVA ── */}
+      <section style={{ position: 'relative', zIndex: 10, padding: '2rem 2rem 6rem' }}>
+        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+            <p style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.12em', color: C.orange, textTransform: 'uppercase', marginBottom: '0.75rem' }}>Comparativa</p>
+            <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontWeight: 700, letterSpacing: '-0.03em', color: C.text }}>
+              Con y sin FlowDesk
+            </h2>
+          </div>
+          <ComparisonSlider />
         </div>
       </section>
 
@@ -379,6 +392,245 @@ function LogoSVG({ size = 36 }: { size?: number }) {
       <line x1="18" y1="18.5" x2="18" y2="26.5" stroke="white" strokeWidth="1" strokeLinecap="round"/>
       <line x1="21" y1="20" x2="21.5" y2="26.5" stroke="white" strokeWidth="1" strokeLinecap="round"/>
     </svg>
+  )
+}
+
+// ─── Comparison Slider ───────────────────────────────────────────────────────
+
+function ComparisonSlider() {
+  const [pos, setPos] = useState(50)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const dragging = useRef(false)
+
+  const move = (clientX: number) => {
+    if (!containerRef.current) return
+    const { left, width } = containerRef.current.getBoundingClientRect()
+    setPos(Math.max(5, Math.min(95, ((clientX - left) / width) * 100)))
+  }
+
+  return (
+    <div>
+      <div
+        ref={containerRef}
+        onMouseMove={e => dragging.current && move(e.clientX)}
+        onMouseUp={() => { dragging.current = false }}
+        onMouseLeave={() => { dragging.current = false }}
+        onTouchMove={e => move(e.touches[0].clientX)}
+        onTouchEnd={() => { dragging.current = false }}
+        style={{
+          position: 'relative', height: '440px', overflow: 'hidden',
+          borderRadius: '20px', cursor: 'col-resize', userSelect: 'none',
+          border: '1px solid #e8e4de', boxShadow: '0 20px 60px rgba(0,0,0,0.08)',
+        }}
+      >
+        {/* Lado derecho: caos */}
+        <div style={{ position: 'absolute', inset: 0 }}><ChaosSide /></div>
+
+        {/* Lado izquierdo: FlowDesk */}
+        <div style={{ position: 'absolute', inset: 0, clipPath: `inset(0 ${100 - pos}% 0 0)` }}>
+          <FlowDeskSide />
+        </div>
+
+        {/* Handle */}
+        <div
+          onMouseDown={e => { dragging.current = true; e.preventDefault() }}
+          onTouchStart={() => { dragging.current = true }}
+          style={{
+            position: 'absolute', top: 0, bottom: 0,
+            left: `${pos}%`, transform: 'translateX(-50%)',
+            width: '3px', background: '#f97316', zIndex: 20,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <div style={{
+            width: '42px', height: '42px', borderRadius: '50%', flexShrink: 0,
+            background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 4px 16px rgba(249,115,22,0.45)', cursor: 'ew-resize',
+          }}>
+            <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
+              <path d="M5.5 3L1.5 8.5L5.5 14M11.5 3L15.5 8.5L11.5 14" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
+        {/* Labels */}
+        <div style={{ position: 'absolute', top: 14, left: 14, zIndex: 10, pointerEvents: 'none' }}>
+          <span style={{ background: '#f97316', color: 'white', fontSize: '0.62rem', fontWeight: 700, padding: '4px 12px', borderRadius: '100px', letterSpacing: '0.05em' }}>✦ CON FLOWDESK</span>
+        </div>
+        <div style={{ position: 'absolute', top: 14, right: 14, zIndex: 10, pointerEvents: 'none' }}>
+          <span style={{ background: 'rgba(0,0,0,0.1)', color: 'rgba(0,0,0,0.45)', fontSize: '0.62rem', fontWeight: 700, padding: '4px 12px', borderRadius: '100px', letterSpacing: '0.05em' }}>SIN FLOWDESK</span>
+        </div>
+      </div>
+      <p style={{ textAlign: 'center', fontSize: '0.75rem', color: 'rgba(28,25,23,0.35)', marginTop: '0.75rem' }}>← Arrastra para comparar →</p>
+    </div>
+  )
+}
+
+function FlowDeskSide() {
+  const days: { label: string; events: { color: string; title: string; time: string; top: number; height: number }[] }[] = [
+    { label: 'LUN 19', events: [
+      { color: '#f97316', title: 'Reunión ITO', time: '09:00–10:30', top: 0, height: 58 },
+      { color: '#3b82f6', title: 'Moldajes', time: '15:00', top: 238, height: 38 },
+    ]},
+    { label: 'MAR 20', events: [
+      { color: '#eab308', title: 'Entregar informe', time: '11:00', top: 80, height: 38 },
+    ]},
+    { label: 'MIÉ 21', events: [
+      { color: '#16a34a', title: 'Hormigonado', time: '13:30–15:00', top: 178, height: 58 },
+    ]},
+    { label: 'JUE 22', events: [
+      { color: '#8b5cf6', title: 'Replanteo topógrafo', time: '12:00–14:00', top: 118, height: 78 },
+    ]},
+    { label: 'VIE 23', events: [
+      { color: '#ec4899', title: 'Cierre semanal', time: '16:00', top: 278, height: 38 },
+    ]},
+  ]
+
+  return (
+    <div style={{ width: '100%', height: '100%', background: '#fff', display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <div style={{ background: '#f97316', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <LogoSVG size={26} />
+          <span style={{ color: 'white', fontWeight: 700, fontSize: '0.9rem' }}>FlowDesk</span>
+        </div>
+        <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.75rem' }}>Mayo 2026 · Semana 21</span>
+      </div>
+
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        {/* Calendario */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {/* Encabezados de días */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', background: '#f8f6f3', borderBottom: '1px solid #e8e4de', flexShrink: 0 }}>
+            {days.map(d => (
+              <div key={d.label} style={{ padding: '7px 4px', textAlign: 'center', fontSize: '0.6rem', fontWeight: 700, color: '#78716c', letterSpacing: '0.04em', borderLeft: '1px solid #e8e4de' }}>{d.label}</div>
+            ))}
+          </div>
+
+          {/* Grid de horas */}
+          <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', position: 'relative' }}>
+            {days.map((day, di) => (
+              <div key={di} style={{ borderLeft: '1px solid #f0ede8', position: 'relative', height: '100%' }}>
+                {/* Líneas de hora */}
+                {[0,1,2,3,4,5,6,7,8].map(h => (
+                  <div key={h} style={{ position: 'absolute', left: 0, right: 0, top: `${h * 40}px`, borderTop: '1px solid #f5f3ef' }} />
+                ))}
+                {/* Eventos */}
+                {day.events.map((ev, i) => (
+                  <div key={i} style={{
+                    position: 'absolute', left: '2px', right: '2px',
+                    top: `${ev.top}px`, height: `${ev.height}px`,
+                    background: ev.color, borderRadius: '6px',
+                    padding: '4px 5px', overflow: 'hidden',
+                  }}>
+                    <div style={{ fontSize: '0.57rem', color: 'white', fontWeight: 700, lineHeight: 1.3 }}>{ev.title}</div>
+                    <div style={{ fontSize: '0.5rem', color: 'rgba(255,255,255,0.85)' }}>{ev.time}</div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Panel de tareas */}
+        <div style={{ width: '150px', flexShrink: 0, borderLeft: '1px solid #e8e4de', padding: '12px 10px', background: '#f8f6f3', overflowY: 'auto' }}>
+          <div style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.08em', color: '#78716c', marginBottom: '10px', textTransform: 'uppercase' }}>Tareas</div>
+          {[
+            { done: true, text: 'Certificado hormigón' },
+            { done: true, text: 'Llamar ITO' },
+            { done: false, text: 'Cubicación muros eje A' },
+            { done: false, text: 'Cotizar subcontrato moldajes' },
+            { done: false, text: 'Registrar HH semana 20' },
+          ].map((t, i) => (
+            <div key={i} style={{ display: 'flex', gap: '7px', alignItems: 'flex-start', marginBottom: '9px' }}>
+              <div style={{
+                width: '14px', height: '14px', borderRadius: '3px', flexShrink: 0, marginTop: '1px',
+                background: t.done ? '#f97316' : 'white', border: `1.5px solid ${t.done ? '#f97316' : '#d6d3d1'}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {t.done && <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>}
+              </div>
+              <span style={{ fontSize: '0.63rem', color: t.done ? '#a8a29e' : '#1c1917', textDecoration: t.done ? 'line-through' : 'none', lineHeight: 1.45 }}>{t.text}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ChaosSide() {
+  return (
+    <div style={{ width: '100%', height: '100%', background: '#fffef0', position: 'relative', overflow: 'hidden' }}>
+      {/* Líneas de cuaderno */}
+      {Array.from({ length: 18 }).map((_, i) => (
+        <div key={i} style={{ position: 'absolute', left: 0, right: 0, top: `${44 + i * 24}px`, height: '1px', background: 'rgba(147,197,253,0.5)' }} />
+      ))}
+      {/* Línea roja de margen */}
+      <div style={{ position: 'absolute', left: '50px', top: 0, bottom: 0, width: '1px', background: 'rgba(239,68,68,0.3)' }} />
+
+      <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} viewBox="0 0 700 440" preserveAspectRatio="xMidYMid slice">
+        <text x="62" y="32" fontFamily="Georgia, serif" fontSize="13.5" fill="#374151" fontWeight="bold">Semana 19–23 mayo</text>
+
+        <text x="62" y="62" fontFamily="Georgia, serif" fontSize="12.5" fill="#374151">Llamar al ITO del lunes → confirmar hormigonado</text>
+        <line x1="58" y1="59" x2="430" y2="59" stroke="#374151" strokeWidth="1.5"/>
+
+        <text x="62" y="90" fontFamily="Georgia, serif" fontSize="12" fill="#374151">Entregar informe avance Sector B</text>
+        <text x="62" y="106" fontFamily="Georgia, serif" fontSize="10.5" fill="#888">   ↳ antes del viernes!! (¿o el lunes?)</text>
+
+        <text x="62" y="136" fontFamily="Georgia, serif" fontSize="12.5" fill="#dc2626" fontWeight="bold">URGENTE: cubicación muros eje A</text>
+        <ellipse cx="218" cy="131" rx="163" ry="13" stroke="#dc2626" strokeWidth="1.5" fill="none" strokeDasharray="5,2"/>
+
+        <text x="62" y="166" fontFamily="Georgia, serif" fontSize="12" fill="#374151">Cotizar moldajes — subcontrato</text>
+        <text x="62" y="183" fontFamily="Georgia, serif" fontSize="10.5" fill="#888">   Empresa 1: ??? / Empresa 2: llamar / Empresa 3: ???</text>
+
+        <path d="M450 155 Q490 135 510 162" stroke="#374151" strokeWidth="1.3" fill="none"/>
+        <polygon points="507,155 514,164 503,165" fill="#374151"/>
+        <text x="455" y="148" fontFamily="Georgia, serif" fontSize="10" fill="#666">ver con</text>
+        <text x="452" y="161" fontFamily="Georgia, serif" fontSize="10" fill="#666">arquitecto</text>
+
+        <text x="62" y="216" fontFamily="Georgia, serif" fontSize="12" fill="#6b7280">Reunión jefatura 15:00 miércoles</text>
+        <line x1="58" y1="213" x2="308" y2="213" stroke="#6b7280" strokeWidth="1.5"/>
+        <text x="314" y="216" fontFamily="Georgia, serif" fontSize="10.5" fill="#f97316">→ reagendó al jueves??</text>
+
+        <text x="62" y="248" fontFamily="Georgia, serif" fontSize="12" fill="#374151">HH semana pasada SIN registrar</text>
+        <text x="62" y="265" fontFamily="Georgia, serif" fontSize="10.5" fill="#888" transform="rotate(-0.5,62,265)">   (¿cuántas fueron? preguntar a Carlos)</text>
+
+        <text x="62" y="296" fontFamily="Georgia, serif" fontSize="12" fill="#374151">Avance obra: ~65%</text>
+        <text x="62" y="313" fontFamily="Georgia, serif" fontSize="10.5" fill="#888">   (¿o era 62%? revisar foto de ayer)</text>
+
+        <text x="62" y="344" fontFamily="Georgia, serif" fontSize="12" fill="#374151">Replanteo topógrafo — ¿martes o miércoles?</text>
+        <line x1="58" y1="341" x2="362" y2="341" stroke="#374151" strokeWidth="1"/>
+        <text x="365" y="344" fontFamily="Georgia, serif" fontSize="10.5" fill="#888">confirmar</text>
+
+        {/* Garabatos lado derecho */}
+        <text x="490" y="248" fontFamily="Georgia, serif" fontSize="10.5" fill="#555" transform="rotate(5,490,248)">Tel. topógrafo:</text>
+        <text x="490" y="262" fontFamily="Georgia, serif" fontSize="10.5" fill="#555" transform="rotate(5,490,262)">+56 9 ???</text>
+        <line x1="484" y1="266" x2="590" y2="266" stroke="#aaa" strokeWidth="0.8"/>
+
+        <path d="M490 310 Q515 290 540 310 Q565 330 590 310" stroke="#bbb" strokeWidth="1" fill="none"/>
+        <path d="M490 325 Q520 305 550 325 Q570 340 590 325" stroke="#ccc" strokeWidth="0.8" fill="none"/>
+        <text x="500" y="360" fontFamily="Georgia, serif" fontSize="11" fill="#ccc" transform="rotate(-2,500,360)">¿¿ qué más ??</text>
+
+        <text x="640" y="120" fontFamily="Georgia, serif" fontSize="36" fill="rgba(0,0,0,0.05)">?</text>
+        <text x="630" y="400" fontFamily="Georgia, serif" fontSize="24" fill="rgba(0,0,0,0.05)">...</text>
+      </svg>
+
+      {/* Nota adhesiva amarilla */}
+      <div style={{ position: 'absolute', top: 16, right: 22, width: '105px', padding: '9px 10px', background: '#fef08a', transform: 'rotate(3deg)', boxShadow: '2px 3px 10px rgba(0,0,0,0.15)' }}>
+        <p style={{ fontSize: '0.6rem', color: '#713f12', lineHeight: 1.6, margin: 0, fontFamily: 'cursive' }}>TOPÓGRAFO<br/>¿MARTES?<br/>¡CONFIRMAR!</p>
+      </div>
+
+      {/* Nota adhesiva verde */}
+      <div style={{ position: 'absolute', bottom: 65, right: 28, width: '95px', padding: '9px 10px', background: '#86efac', transform: 'rotate(-4deg)', boxShadow: '2px 3px 10px rgba(0,0,0,0.15)' }}>
+        <p style={{ fontSize: '0.6rem', color: '#14532d', lineHeight: 1.6, margin: 0, fontFamily: 'cursive' }}>cubicación<br/>= 124 m³?<br/>(aprox...)</p>
+      </div>
+
+      {/* Nota adhesiva roja */}
+      <div style={{ position: 'absolute', bottom: 110, left: 16, width: '115px', padding: '9px 10px', background: '#fca5a5', transform: 'rotate(-2deg)', boxShadow: '2px 3px 10px rgba(0,0,0,0.15)' }}>
+        <p style={{ fontSize: '0.6rem', color: '#7f1d1d', lineHeight: 1.6, margin: 0, fontFamily: 'cursive' }}>HH semana<br/>pasada sin<br/>registrar ⚠️</p>
+      </div>
+    </div>
   )
 }
 
