@@ -225,7 +225,7 @@ export default function CalendarView() {
 
   /* ── Render ── */
   return (
-    <div style={{ padding: '2rem', maxWidth: view === 'month' ? '1100px' : '1300px', margin: '0 auto' }}>
+    <div style={{ padding: '2rem', maxWidth: '1100px', margin: '0 auto' }}>
 
       {/* Lightbox */}
       {lightboxUrl && (
@@ -375,15 +375,19 @@ export default function CalendarView() {
       )}
 
       {/* Nav bar */}
-      <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'1rem' }}>
-        <button onClick={goBack} style={{ width:'34px', height:'34px', borderRadius:'9px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--foreground)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-          <ChevronLeft size={17} />
-        </button>
-        <span style={{ flex:1, fontSize:'0.95rem', fontWeight:600, textAlign:'center' }}>{navTitle()}</span>
-        <button onClick={goForward} style={{ width:'34px', height:'34px', borderRadius:'9px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--foreground)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-          <ChevronRight size={17} />
-        </button>
-        <button onClick={goToday} style={{ padding:'6px 14px', borderRadius:'8px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text-muted)', cursor:'pointer', fontSize:'0.8rem', fontWeight:500, flexShrink:0 }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', marginBottom:'1rem', position:'relative' }}>
+        {/* ← título → agrupados en el centro */}
+        <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+          <button onClick={goBack} style={{ width:'32px', height:'32px', borderRadius:'8px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--foreground)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <ChevronLeft size={16} />
+          </button>
+          <span style={{ fontSize:'0.95rem', fontWeight:600, minWidth:'220px', textAlign:'center' }}>{navTitle()}</span>
+          <button onClick={goForward} style={{ width:'32px', height:'32px', borderRadius:'8px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--foreground)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <ChevronRight size={16} />
+          </button>
+        </div>
+        {/* Hoy — esquina derecha */}
+        <button onClick={goToday} style={{ position:'absolute', right:0, padding:'6px 14px', borderRadius:'8px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text-muted)', cursor:'pointer', fontSize:'0.8rem', fontWeight:500 }}>
           Hoy
         </button>
       </div>
