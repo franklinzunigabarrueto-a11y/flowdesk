@@ -42,15 +42,10 @@ export default function DashboardShell({ user, children }: Props) {
         {/* Logo */}
         <div style={{ padding: '0 1.25rem 1.5rem', borderBottom: '1px solid var(--border)', marginBottom: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <img src="/logo.png?v=4" width="34" height="34" alt="FlowDesk" style={{ display: 'block', flexShrink: 0 }} />
-            <div>
-              <span style={{ fontSize: '1.05rem', fontWeight: 800, letterSpacing: '-0.02em', display: 'block', lineHeight: 1 }}>
-                Flow<span style={{ color: '#f97316' }}>Desk</span>
-              </span>
-              <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                La agenda del constructor
-              </span>
-            </div>
+            <img src="/logo.png?v=4" width="42" height="42" alt="FlowDesk" style={{ display: 'block', flexShrink: 0 }} />
+            <span style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1 }}>
+              Flow<span style={{ color: '#f97316' }}>Desk</span>
+            </span>
           </div>
         </div>
 
