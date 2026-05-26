@@ -16,7 +16,12 @@ export async function GET(request: Request) {
     .eq('user_id', user.id)
     .order('start_time', { ascending: true })
 
-  if (month && year) {
+  const rangeStart = searchParams.get('start')
+  const rangeEnd   = searchParams.get('end')
+
+  if (rangeStart && rangeEnd) {
+    query = query.gte('start_time', rangeStart).lte('start_time', rangeEnd + 'T23:59:59')
+  } else if (month && year) {
     const start = `${year}-${String(month).padStart(2, '0')}-01`
     const nextMonth = Number(month) === 12
       ? `${Number(year) + 1}-01-01`
