@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase'
 import {
   Calendar, CheckSquare, BookOpen, LogOut, User,
   ChevronDown, ChevronUp, X, Sun, Moon,
-  CreditCard, Settings, Check, Smartphone,
+  CreditCard, Settings, Check, Smartphone, Pencil, CheckCircle, AlertCircle,
 } from 'lucide-react'
 import { UserProfile } from '@/types'
 
@@ -244,6 +244,42 @@ function ModalCuenta({ user, onClose }: { user: UserProfile; onClose: () => void
   const firstName = parts[0] || ''
   const lastName = parts.slice(1).join(' ') || '—'
 
+  const [editing, setEditing] = useState(false)
+  const [phone, setPhone] = useState(user.whatsapp_number || '')
+  const [saving, setSaving] = useState(false)
+  const [status, setStatus] = useState<'idle' | 'ok' | 'error'>('idle')
+  const [errorMsg, setErrorMsg] = useState('')
+
+  async function savePhone() {
+    setSaving(true)
+    setStatus('idle')
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ whatsapp_number: phone }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setErrorMsg(data.error || 'Error al guardar')
+        setStatus('error')
+      } else {
+        setStatus('ok')
+        setEditing(false)
+      }
+    } catch {
+      setErrorMsg('Error de conexión')
+      setStatus('error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Format for display: add + prefix if number looks like digits only
+  const displayPhone = phone
+    ? (phone.startsWith('+') ? phone : `+${phone}`)
+    : '—'
+
   return (
     <div style={{ padding: '1.75rem' }}>
       <ModalHeader title="Mi cuenta" onClose={onClose} />
@@ -271,11 +307,82 @@ function ModalCuenta({ user, onClose }: { user: UserProfile; onClose: () => void
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
         <Field label="Nombre"   value={firstName} />
         <Field label="Apellido" value={lastName} />
+
+        {/* Email — solo lectura con aviso */}
         <div style={{ gridColumn: '1 / -1' }}>
-          <Field label="Correo electrónico" value={user.email} />
+          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 500 }}>Correo electrónico</p>
+          <div style={{
+            padding: '9px 12px', borderRadius: '9px',
+            background: 'var(--surface-hover)', border: '1px solid var(--border)',
+            fontSize: '0.875rem', color: 'var(--text-muted)',
+            display: 'flex', alignItems: 'center', gap: '8px',
+          }}>
+            <span style={{ flex: 1 }}>{user.email}</span>
+          </div>
+          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '4px 0 0', lineHeight: 1.5, opacity: 0.8 }}>
+            El correo no puede modificarse — está vinculado a los calendarios de tu cuenta.
+          </p>
         </div>
+
+        {/* WhatsApp — editable */}
         <div style={{ gridColumn: '1 / -1' }}>
-          <Field label="Número WhatsApp" value={user.whatsapp_number || '—'} icon={<Smartphone size={13} />} />
+          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 500 }}>
+            Número WhatsApp
+          </p>
+          {editing ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 12px', borderRadius: '9px', background: 'var(--background)', border: '1.5px solid var(--primary)' }}>
+                  <Smartphone size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                  <input
+                    autoFocus
+                    value={phone}
+                    onChange={e => { setPhone(e.target.value); setStatus('idle') }}
+                    onKeyDown={e => { if (e.key === 'Enter') savePhone(); if (e.key === 'Escape') setEditing(false) }}
+                    placeholder="56912345678"
+                    style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '0.875rem', color: 'var(--foreground)' }}
+                  />
+                </div>
+                <button onClick={savePhone} disabled={saving} style={{ padding: '9px 14px', borderRadius: '9px', background: 'var(--primary)', border: 'none', color: 'white', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, flexShrink: 0 }}>
+                  {saving ? '...' : 'Guardar'}
+                </button>
+                <button onClick={() => { setEditing(false); setStatus('idle') }} style={{ padding: '9px 12px', borderRadius: '9px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.82rem', flexShrink: 0 }}>
+                  Cancelar
+                </button>
+              </div>
+              <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+                Incluye el código de país sin el +. Ej: <strong>56912345678</strong>
+              </p>
+              {status === 'error' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444', fontSize: '0.78rem' }}>
+                  <AlertCircle size={13} /> {errorMsg}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{
+              padding: '9px 12px', borderRadius: '9px',
+              background: 'var(--background)', border: '1px solid var(--border)',
+              fontSize: '0.875rem', color: 'var(--foreground)',
+              display: 'flex', alignItems: 'center', gap: '8px',
+            }}>
+              <Smartphone size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+              <span style={{ flex: 1 }}>{displayPhone}</span>
+              {status === 'ok' && <CheckCircle size={14} color="#22c55e" />}
+              <button
+                onClick={() => { setEditing(true); setStatus('idle') }}
+                title="Cambiar número"
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', display: 'flex', flexShrink: 0 }}
+              >
+                <Pencil size={13} />
+              </button>
+            </div>
+          )}
+          {!editing && (
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '4px 0 0', lineHeight: 1.5, opacity: 0.8 }}>
+              Al cambiar el número, el bot de WhatsApp enviará los mensajes al nuevo contacto.
+            </p>
+          )}
         </div>
       </div>
 
