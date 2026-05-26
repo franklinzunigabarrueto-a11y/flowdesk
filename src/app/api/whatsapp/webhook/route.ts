@@ -336,6 +336,7 @@ export async function POST(request: Request) {
       }).eq('id', user.id)
       await supabase.from('diary_entries').insert({
         user_id: user.id, content: textContent, entry_date: today, whatsapp_message_id: messageId,
+        image_url: effectiveImageUrl || null,
       })
       try { await sendWhatsAppMessage(from, result.response) } catch (e) {}
       return NextResponse.json({ ok: true })
@@ -397,6 +398,7 @@ export async function POST(request: Request) {
 
     await supabase.from('diary_entries').insert({
       user_id: user.id, content: textContent, entry_date: today, whatsapp_message_id: messageId,
+      image_url: effectiveImageUrl || null,
     })
 
     try { await sendWhatsAppMessage(from, intent.response) } catch (e) {}

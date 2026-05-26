@@ -234,6 +234,65 @@ export async function transcribeAudio(audioBase64: string, mimeType: string): Pr
   return (response.text ?? '').trim()
 }
 
+export type DiarySuggestion = {
+  type: 'followup' | 'backup' | 'alert' | 'risk'
+  title: string
+  detail: string
+  priority: 'high' | 'medium' | 'low'
+}
+
+export type DiarySummaryResult = {
+  summary: string
+  suggestions: DiarySuggestion[]
+}
+
+export async function generateDiarySummary(
+  entries: Array<{ content: string; created_at: string; audio_url?: string | null; image_url?: string | null }>,
+  date: string
+): Promise<DiarySummaryResult> {
+  const entriesText = entries
+    .map((e, i) => {
+      const time = new Date(e.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+      const kind = e.audio_url ? '🎤 Audio' : e.image_url ? '📸 Foto' : '✉️ Texto'
+      return `${i + 1}. [${time}] ${kind}: ${e.content}`
+    })
+    .join('\n')
+
+  const prompt = `Eres un asistente especializado en gestión de proyectos de construcción en Chile.
+Analiza las siguientes entradas del diario de obra del día ${date}:
+
+${entriesText}
+
+Genera:
+1. Un RESUMEN conciso del día (2-4 oraciones) que capture actividades principales, avances y situaciones relevantes del día en obra.
+2. Hasta 4 SUGERENCIAS específicas con enfoque constructivo. SOLO sugiere si hay algo concreto que recomendar basado en las entradas:
+   - "followup": seguimiento necesario (ej: hormigonado → agendar desencofrado en 3-7 días; replanteo → confirmar con topógrafo antes de iniciar fundaciones)
+   - "backup": respaldo importante (ej: acuerdo verbal con ITO o mandante → enviar correo de respaldo; cambio de especificación → documentar en libro de obra)
+   - "alert": alerta de coordinación o plazo (ej: faena mañana → confirmar disponibilidad de subcontrato y materiales; vencimiento de plazo contractual)
+   - "risk": riesgo identificado (ej: fisura reportada → generar registro fotográfico formal y notificar al ITO; trabajo en altura sin EPP mencionado)
+
+Si no hay suficiente información para sugerencias útiles, devuelve "suggestions": [].
+
+Responde SOLO con JSON válido:
+{
+  "summary": "Resumen del día en 2-4 oraciones...",
+  "suggestions": [
+    {
+      "type": "followup|backup|alert|risk",
+      "title": "Título corto máx 6 palabras",
+      "detail": "Explicación concreta de qué hacer y por qué es importante",
+      "priority": "high|medium|low"
+    }
+  ]
+}`
+
+  const response = await genAI.models.generateContent({ model: MODEL, contents: prompt })
+  const text = (response.text ?? '').trim()
+  const jsonMatch = text.match(/\{[\s\S]*\}/)
+  if (!jsonMatch) throw new Error('No JSON en generateDiarySummary')
+  return JSON.parse(jsonMatch[0]) as DiarySummaryResult
+}
+
 function getUtcOffset(timezone: string): string {
   const now = new Date()
   const utcDate = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }))

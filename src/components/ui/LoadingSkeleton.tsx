@@ -149,47 +149,89 @@ export function TasksSkeleton() {
 /* ─── BITÁCORA ───────────────────────────────────────────── */
 export function DiarySkeleton() {
   return (
-    <div style={{ padding: '2rem', maxWidth: 900, margin: '0 auto', animation: 'fadeUp 0.25s ease' }}>
+    <div style={{ padding: '2rem', maxWidth: 1200, margin: '0 auto', animation: 'fadeUp 0.25s ease' }}>
       <style>{shimmerKeyframes}</style>
 
       {/* Header */}
-      <div style={{ marginBottom: '2rem' }}>
-        <Sk w={110} h={26} r={6} />
-        <Sk w={220} h={13} r={4} delay={0.05} style={{ marginTop: 8 }} />
+      <div style={{ marginBottom: '1.5rem' }}>
+        <Sk w={160} h={26} r={6} />
+        <Sk w={230} h={13} r={4} delay={0.05} style={{ marginTop: 8 }} />
       </div>
 
-      {/* Controls: date toggle + search */}
+      {/* Controls */}
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-        <Sk w={180} h={38} r={12} delay={0.05} />
-        <Sk w={200} h={38} r={10} delay={0.1} />
+        <Sk w={190} h={40} r={12} delay={0.05} />
+        <Sk w={130} h={40} r={10} delay={0.08} />
+        <Sk w={220} h={40} r={10} delay={0.11} />
       </div>
 
-      {/* Diary entry cards */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        {[0, 0.1, 0.2].map((d, i) => (
-          <div key={i} style={{
-            border: '1px solid var(--border)',
-            borderRadius: 14,
-            overflow: 'hidden',
-            background: 'var(--surface)',
-          }}>
-            {/* Entry header bar */}
-            <div style={{
-              padding: '0.875rem 1.25rem',
-              borderBottom: '1px solid var(--border)',
-              display: 'flex', alignItems: 'center', gap: 10,
+      {/* Two-column layout */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: '1.5rem', alignItems: 'start' }}>
+
+        {/* Left: entries */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {[0, 0.08, 0.16].map((d, i) => (
+            <div key={i} style={{
+              border: '1px solid var(--border)', borderLeft: '3px solid var(--border)',
+              borderRadius: 16, overflow: 'hidden', background: 'var(--surface)',
             }}>
-              <Sk w={28} h={28} r={8} delay={d} />
-              <Sk w={100} h={14} r={4} delay={d + 0.04} />
-              <Sk w={60} h={20} r={100} delay={d + 0.06} style={{ marginLeft: 'auto' }} />
+              <div style={{
+                padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border)',
+                display: 'flex', alignItems: 'center', gap: 10,
+              }}>
+                <Sk w={28} h={28} r={8} delay={d} />
+                <Sk w={120} h={12} r={4} delay={d + 0.04} />
+              </div>
+              <div style={{ padding: '0.875rem 1.25rem', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <Sk w="100%" h={12} r={4} delay={d + 0.08} />
+                <Sk w={`${60 + i * 10}%`} h={12} r={4} delay={d + 0.12} />
+              </div>
             </div>
-            {/* Entry body */}
+          ))}
+        </div>
+
+        {/* Right: summary + suggestions */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {/* Summary card */}
+          <div style={{ border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', background: 'var(--surface)' }}>
+            <div style={{ padding: '0.875rem 1.25rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Sk w={28} h={28} r={8} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <Sk w={110} h={13} r={4} delay={0.04} />
+                <Sk w={70} h={10} r={3} delay={0.07} />
+              </div>
+            </div>
             <div style={{ padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <Sk w="100%" h={12} r={4} delay={d + 0.08} />
-              <Sk w={`${65 + i * 8}%`} h={12} r={4} delay={d + 0.12} />
+              <Sk w="100%" h={11} r={4} delay={0.1} />
+              <Sk w="90%" h={11} r={4} delay={0.14} />
+              <Sk w="75%" h={11} r={4} delay={0.18} />
             </div>
           </div>
-        ))}
+
+          {/* Suggestions card */}
+          <div style={{ border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', background: 'var(--surface)' }}>
+            <div style={{ padding: '0.875rem 1.25rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Sk w={28} h={28} r={8} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <Sk w={130} h={13} r={4} delay={0.04} />
+                <Sk w={90} h={10} r={3} delay={0.07} />
+              </div>
+            </div>
+            <div style={{ padding: '0.875rem', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[0, 0.1].map((d, i) => (
+                <div key={i} style={{ padding: '0.75rem', borderRadius: 12, border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <Sk w={26} h={26} r={7} delay={d} />
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <Sk w="55%" h={11} r={4} delay={d + 0.04} />
+                      <Sk w="85%" h={10} r={4} delay={d + 0.08} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )

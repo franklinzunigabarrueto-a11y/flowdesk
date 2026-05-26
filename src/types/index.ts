@@ -19,6 +19,7 @@ export interface DiaryEntry {
   user_id: string
   content: string
   audio_url?: string
+  image_url?: string
   entry_date: string
   task_references?: string[]
   whatsapp_message_id?: string
