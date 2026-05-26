@@ -1,34 +1,22 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import useSWR from 'swr'
+
+const fetcher = (url: string) => fetch(url).then(r => r.json())
 import { BookOpen, Mic, Search, ChevronLeft, ChevronRight } from 'lucide-react'
 import { DiaryEntry } from '@/types'
 import { formatDate, isToday } from '@/lib/utils'
 
 export default function DiaryView() {
-  const [entries, setEntries] = useState<DiaryEntry[]>([])
-  const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
   const [searchQuery, setSearchQuery] = useState('')
+  const [committedQuery, setCommittedQuery] = useState('')
 
-  useEffect(() => {
-    fetchEntries()
-  }, [selectedDate])
-
-  async function fetchEntries() {
-    setLoading(true)
-    try {
-      const params = new URLSearchParams({ date: selectedDate })
-      if (searchQuery) params.append('q', searchQuery)
-      const res = await fetch(`/api/diary?${params}`)
-      const data = await res.json()
-      setEntries(data.entries || [])
-    } catch {
-      setEntries([])
-    } finally {
-      setLoading(false)
-    }
-  }
+  const swrKey = `/api/diary?date=${selectedDate}${committedQuery ? `&q=${encodeURIComponent(committedQuery)}` : ''}`
+  const { data, mutate } = useSWR(swrKey, fetcher)
+  const entries: DiaryEntry[] = data?.entries ?? []
+  const loading = !data
 
   function changeDay(delta: number) {
     const d = new Date(selectedDate)
@@ -105,8 +93,8 @@ export default function DiaryView() {
             type="text"
             placeholder="Buscar en la bitácora..."
             value={searchQuery}
-            onChange={e => { setSearchQuery(e.target.value); if (!e.target.value) fetchEntries() }}
-            onKeyDown={e => e.key === 'Enter' && fetchEntries()}
+            onChange={e => { setSearchQuery(e.target.value); if (!e.target.value) setCommittedQuery('') }}
+            onKeyDown={e => { if (e.key === 'Enter') setCommittedQuery(searchQuery) }}
             style={{
               width: '100%', padding: '8px 12px 8px 38px',
               borderRadius: '10px',

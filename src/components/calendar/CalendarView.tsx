@@ -1,6 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import useSWR from 'swr'
+
+const fetcher = (url: string) => fetch(url).then(r => r.json())
 import { ChevronLeft, ChevronRight, Plus, Clock, Trash2, X, Pencil, Check, Paperclip } from 'lucide-react'
 import { CalendarEvent } from '@/types'
 import DatePicker from '@/components/ui/DatePicker'
@@ -14,8 +17,6 @@ export default function CalendarView() {
   const today = new Date()
   const [currentDate, setCurrentDate] = useState(today)
   const [selectedDay, setSelectedDay] = useState(today.getDate())
-  const [events, setEvents] = useState<CalendarEvent[]>([])
-  const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -43,22 +44,9 @@ export default function CalendarView() {
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
 
-  useEffect(() => {
-    fetchEvents()
-  }, [month, year])
-
-  async function fetchEvents() {
-    setLoading(true)
-    try {
-      const res = await fetch(`/api/events?month=${month + 1}&year=${year}`)
-      const data = await res.json()
-      setEvents(data.events || [])
-    } catch {
-      setEvents([])
-    } finally {
-      setLoading(false)
-    }
-  }
+  const swrKey = `/api/events?month=${month + 1}&year=${year}`
+  const { data: eventsData, mutate } = useSWR(swrKey, fetcher)
+  const events: CalendarEvent[] = eventsData?.events ?? []
 
   async function createEvent(e: React.FormEvent) {
     e.preventDefault()
@@ -74,7 +62,7 @@ export default function CalendarView() {
       setNewEvent({ title: '', date: '', time: '', description: '' })
       setCreateImageUrl(null)
       setShowForm(false)
-      fetchEvents()
+      mutate()
     } finally {
       setSaving(false)
     }
@@ -84,7 +72,7 @@ export default function CalendarView() {
     setDeletingId(eventId)
     try {
       await fetch(`/api/events/${eventId}`, { method: 'DELETE' })
-      setEvents(prev => prev.filter(e => e.id !== eventId))
+      mutate()
     } finally {
       setDeletingId(null)
     }
@@ -124,17 +112,8 @@ export default function CalendarView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: editDraft.title, start_time, description: editDraft.description, image_url: editImageUrl }),
       })
-      const data = await res.json()
-      if (data.event) {
-        setEvents(prev => prev.map(e => e.id === eventId ? {
-          ...e,
-          title: editDraft.title,
-          start: start_time,
-          description: editDraft.description,
-          image_url: editImageUrl,
-        } as any : e))
-      }
       setEditingId(null)
+      mutate()
     } finally {
       setEditSaving(false)
     }

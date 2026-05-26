@@ -1,6 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import useSWR from 'swr'
+
+const fetcher = (url: string) => fetch(url).then(r => r.json())
 import { Plus, CheckCircle, Circle, Clock, Flag, Trash2, X, Pencil, Check } from 'lucide-react'
 import { Task, TaskStatus, TaskPriority } from '@/types'
 import { formatDate } from '@/lib/utils'
@@ -25,8 +28,9 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
 }
 
 export default function TasksView() {
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data, mutate } = useSWR('/api/tasks', fetcher)
+  const tasks: Task[] = data?.tasks ?? []
+  const loading = !data
   const [filter, setFilter] = useState<TaskStatus | 'all'>('all')
   const [showForm, setShowForm] = useState(false)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
@@ -42,36 +46,21 @@ export default function TasksView() {
   const [editDraft, setEditDraft] = useState({ title: '', description: '', priority: 'medium' as TaskPriority, due_date: '' })
   const [editSaving, setEditSaving] = useState(false)
 
-  useEffect(() => {
-    fetchTasks()
-  }, [])
-
-  async function fetchTasks() {
-    setLoading(true)
-    try {
-      const res = await fetch('/api/tasks')
-      const data = await res.json()
-      setTasks(data.tasks || [])
-    } catch {
-      setTasks([])
-    } finally {
-      setLoading(false)
-    }
-  }
-
   async function toggleTask(task: Task) {
     const newStatus: TaskStatus = task.status === 'completed' ? 'pending' : 'completed'
+    mutate({ tasks: tasks.map(t => t.id === task.id ? { ...t, status: newStatus } : t) }, false)
     await fetch(`/api/tasks/${task.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus }),
     })
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus } : t))
+    mutate()
   }
 
   async function deleteTask(id: string) {
+    mutate({ tasks: tasks.filter(t => t.id !== id) }, false)
     await fetch(`/api/tasks/${id}`, { method: 'DELETE' })
-    setTasks(prev => prev.filter(t => t.id !== id))
+    mutate()
   }
 
   async function createTask(e: React.FormEvent) {
@@ -82,11 +71,11 @@ export default function TasksView() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newTask),
     })
-    const data = await res.json()
-    if (data.task) {
-      setTasks(prev => [data.task, ...prev])
+    const resData = await res.json()
+    if (resData.task) {
       setNewTask({ title: '', description: '', priority: 'medium', due_date: '' })
       setShowForm(false)
+      mutate()
     }
   }
 
@@ -114,11 +103,8 @@ export default function TasksView() {
           due_date: editDraft.due_date || null,
         }),
       })
-      const data = await res.json()
-      if (data.task) {
-        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...data.task } : t))
-      }
       setEditingId(null)
+      mutate()
     } finally {
       setEditSaving(false)
     }
