@@ -8,7 +8,7 @@ import { ChevronLeft, ChevronRight, Plus, Clock, Trash2, X, Pencil, Check, Paper
 import { CalendarEvent } from '@/types'
 import DatePicker from '@/components/ui/DatePicker'
 
-const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+const DAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
 const EVENT_COLORS = ['#f97316', '#fb923c', '#f59e0b', '#22c55e', '#ef4444', '#3b82f6']
@@ -119,8 +119,10 @@ export default function CalendarView() {
     }
   }
 
-  const firstDay = new Date(year, month, 1).getDay()
+  // Monday-first: Sun(0)→6, Mon(1)→0, Tue(2)→1, ..., Sat(6)→5
+  const firstDay = (new Date(year, month, 1).getDay() + 6) % 7
   const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const isWeekendCol = (col: number) => col === 5 || col === 6
 
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1))
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1))
@@ -271,11 +273,14 @@ export default function CalendarView() {
             display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)',
             padding: '1rem 1.5rem 0.5rem'
           }}>
-            {DAYS.map(d => (
+            {DAYS.map((d, idx) => (
               <div key={d} style={{
                 textAlign: 'center', fontSize: '0.75rem',
-                color: 'var(--text-muted)', fontWeight: 600,
-                padding: '0.5rem 0'
+                color: isWeekendCol(idx) ? 'rgba(239,68,68,0.55)' : 'var(--text-muted)',
+                fontWeight: 600,
+                padding: '0.5rem 0',
+                background: isWeekendCol(idx) ? 'rgba(239,68,68,0.05)' : 'transparent',
+                borderRadius: '6px',
               }}>
                 {d}
               </div>
@@ -288,10 +293,16 @@ export default function CalendarView() {
             padding: '0 1.5rem 1.5rem', gap: '4px'
           }}>
             {Array.from({ length: firstDay }).map((_, i) => (
-              <div key={`empty-${i}`} />
+              <div key={`empty-${i}`} style={{
+                aspectRatio: '1',
+                borderRadius: '10px',
+                background: isWeekendCol(i) ? 'rgba(239,68,68,0.04)' : 'transparent',
+              }} />
             ))}
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const day = i + 1
+              const col = (firstDay + i) % 7
+              const isWeekend = isWeekendCol(col)
               const dayEvents = getEventsForDay(day)
               const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear()
               const isSelected = day === selectedDay
@@ -307,8 +318,10 @@ export default function CalendarView() {
                     border: isSelected && !isToday ? '1px solid var(--primary)' : '1px solid transparent',
                     background: isToday
                       ? 'var(--primary)'
-                      : isSelected ? 'rgba(249,115,22,0.12)' : 'transparent',
-                    color: isToday ? 'white' : 'var(--foreground)',
+                      : isSelected ? 'rgba(249,115,22,0.12)'
+                      : isWeekend ? 'rgba(239,68,68,0.05)'
+                      : 'transparent',
+                    color: isToday ? 'white' : isWeekend && !isSelected ? 'rgba(239,68,68,0.75)' : 'var(--foreground)',
                     cursor: 'pointer',
                     fontSize: '0.875rem',
                     fontWeight: isToday || isSelected ? 600 : 400,
