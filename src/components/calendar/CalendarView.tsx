@@ -280,7 +280,6 @@ export default function CalendarView() {
                 fontWeight: 600,
                 padding: '0.5rem 0',
                 background: isWeekendCol(idx) ? 'rgba(239,68,68,0.05)' : 'transparent',
-                borderRadius: '6px',
               }}>
                 {d}
               </div>
@@ -290,13 +289,12 @@ export default function CalendarView() {
           {/* Grid días */}
           <div style={{
             display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)',
-            padding: '0 1.5rem 1.5rem', gap: '4px'
+            padding: '0 1.5rem 1.5rem', gap: '0'
           }}>
             {Array.from({ length: firstDay }).map((_, i) => (
               <div key={`empty-${i}`} style={{
                 aspectRatio: '1',
-                borderRadius: '10px',
-                background: isWeekendCol(i) ? 'rgba(239,68,68,0.04)' : 'transparent',
+                background: isWeekendCol(i) ? 'rgba(239,68,68,0.05)' : 'transparent',
               }} />
             ))}
             {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -308,42 +306,45 @@ export default function CalendarView() {
               const isSelected = day === selectedDay
 
               return (
-                <button
-                  key={day}
-                  onClick={() => setSelectedDay(day)}
-                  style={{
-                    position: 'relative',
-                    aspectRatio: '1',
-                    borderRadius: '10px',
-                    border: isSelected && !isToday ? '1px solid var(--primary)' : '1px solid transparent',
-                    background: isToday
-                      ? 'var(--primary)'
-                      : isSelected ? 'rgba(249,115,22,0.12)'
-                      : isWeekend ? 'rgba(239,68,68,0.05)'
-                      : 'transparent',
-                    color: isToday ? 'white' : isWeekend && !isSelected ? 'rgba(239,68,68,0.75)' : 'var(--foreground)',
-                    cursor: 'pointer',
-                    fontSize: '0.875rem',
-                    fontWeight: isToday || isSelected ? 600 : 400,
-                    display: 'flex', flexDirection: 'column',
-                    alignItems: 'center', justifyContent: 'center',
-                    gap: '3px',
-                    boxShadow: isToday ? '0 0 15px var(--primary-glow)' : 'none',
-                    transition: 'all 0.15s'
-                  }}
-                >
-                  {day}
-                  {dayEvents.length > 0 && (
-                    <div style={{ display: 'flex', gap: '2px' }}>
-                      {dayEvents.slice(0, 3).map((e, idx) => (
-                        <div key={idx} style={{
-                          width: '4px', height: '4px', borderRadius: '50%',
-                          background: isToday ? 'rgba(255,255,255,0.8)' : (e.color || EVENT_COLORS[idx % EVENT_COLORS.length])
-                        }} />
-                      ))}
-                    </div>
-                  )}
-                </button>
+                <div key={day} style={{
+                  padding: '2px',
+                  background: isWeekend ? 'rgba(239,68,68,0.05)' : 'transparent',
+                }}>
+                  <button
+                    onClick={() => setSelectedDay(day)}
+                    style={{
+                      width: '100%',
+                      aspectRatio: '1',
+                      borderRadius: '10px',
+                      border: isSelected && !isToday ? '1px solid var(--primary)' : '1px solid transparent',
+                      background: isToday
+                        ? 'var(--primary)'
+                        : isSelected ? 'rgba(249,115,22,0.12)'
+                        : 'transparent',
+                      color: isToday ? 'white' : isWeekend && !isSelected ? 'rgba(239,68,68,0.75)' : 'var(--foreground)',
+                      cursor: 'pointer',
+                      fontSize: '0.875rem',
+                      fontWeight: isToday || isSelected ? 600 : 400,
+                      display: 'flex', flexDirection: 'column',
+                      alignItems: 'center', justifyContent: 'center',
+                      gap: '3px',
+                      boxShadow: isToday ? '0 0 15px var(--primary-glow)' : 'none',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    {day}
+                    {dayEvents.length > 0 && (
+                      <div style={{ display: 'flex', gap: '2px' }}>
+                        {dayEvents.slice(0, 3).map((e, idx) => (
+                          <div key={idx} style={{
+                            width: '4px', height: '4px', borderRadius: '50%',
+                            background: isToday ? 'rgba(255,255,255,0.8)' : (e.color || EVENT_COLORS[idx % EVENT_COLORS.length])
+                          }} />
+                        ))}
+                      </div>
+                    )}
+                  </button>
+                </div>
               )
             })}
           </div>
