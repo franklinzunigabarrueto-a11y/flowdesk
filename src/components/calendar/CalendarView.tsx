@@ -710,23 +710,21 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
           setHoverY(e.clientY - rect.top)
         }) : undefined}
         onMouseLeave={onDoubleClickCell ? () => setHoverY(null) : undefined}
-        onDoubleClick={onDoubleClickCell ? (e => {
-          const rect = e.currentTarget.getBoundingClientRect()
-          const relY = e.clientY - rect.top
-          onDoubleClickCell(dateStr(date), pxToTimeStr(relY))
-        }) : undefined}
-        style={{ flex:1, position:'relative', background: wknd ? 'rgba(239,68,68,0.02)' : 'transparent', cursor: onDoubleClickCell ? 'cell' : 'default' }}>
+        style={{ flex:1, position:'relative', background: wknd ? 'rgba(239,68,68,0.02)' : 'transparent' }}>
         {/* Hour lines */}
         {HOURS.map(h => (
           <div key={h} style={{ position:'absolute', left:0, right:0, top:`${(h - START_H) * ROW_H}px`, height:`${ROW_H}px`, borderBottom:'1px solid var(--border)', boxSizing:'border-box' }} />
         ))}
         {/* Hover slot highlight */}
         {snapY !== null && (
-          <div style={{ position:'absolute', left:0, right:0, top:`${snapY}px`, height:`${SLOT_H}px`, background:'rgba(249,115,22,0.1)', borderRadius:'4px', zIndex:1, pointerEvents:'none', display:'flex', alignItems:'center', paddingLeft:'6px', gap:'4px' }}>
-            <div style={{ width:'14px', height:'14px', borderRadius:'50%', background:'var(--primary)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, opacity:0.85 }}>
-              <span style={{ color:'white', fontSize:'10px', fontWeight:700, lineHeight:1 }}>+</span>
-            </div>
-            <span style={{ fontSize:'0.65rem', fontWeight:600, color:'var(--primary)', opacity:0.9 }}>
+          <div style={{ position:'absolute', left:0, right:0, top:`${snapY}px`, height:`${SLOT_H}px`, background:'rgba(249,115,22,0.08)', zIndex:1, pointerEvents:'none', display:'flex', alignItems:'center', paddingLeft:'4px', gap:'4px' }}>
+            <button
+              onMouseEnter={() => {}} // keeps hover alive while over button
+              onClick={() => onDoubleClickCell!(dateStr(date), pxToTimeStr(snapY!))}
+              style={{ pointerEvents:'auto', width:'16px', height:'16px', borderRadius:'50%', background:'var(--primary)', border:'none', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, cursor:'pointer', boxShadow:'0 0 6px var(--primary-glow)', padding:0 }}>
+              <span style={{ color:'white', fontSize:'11px', fontWeight:700, lineHeight:1 }}>+</span>
+            </button>
+            <span style={{ fontSize:'0.65rem', fontWeight:600, color:'var(--primary)' }}>
               {pxToTimeStr(snapY)}
             </span>
           </div>
