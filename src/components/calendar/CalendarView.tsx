@@ -262,6 +262,8 @@ export default function CalendarView() {
 
   function eventsForDay(d: Date) { return events.filter(e => dateStr(new Date(e.start)) === dateStr(d)) }
 
+  const [hoveredDay, setHoveredDay] = useState<number | null>(null)
+
   /* Month-specific */
   const firstDay    = (new Date(year, month, 1).getDay() + 6) % 7
   const daysInMonth = new Date(year, month + 1, 0).getDate()
@@ -514,10 +516,15 @@ export default function CalendarView() {
                 const isSel = day === selDay
                 return (
                   <div key={day} style={{ padding:'2px', background: wknd ? 'rgba(239,68,68,0.05)' : 'transparent' }}>
-                    <button onClick={() => setSelDay(day)} onDoubleClick={() => openQuickCreate(`${year}-${pad(month+1)}-${pad(day)}`, '08:00')} style={{
+                    <button
+                      onClick={() => setSelDay(day)}
+                      onDoubleClick={() => openQuickCreate(`${year}-${pad(month+1)}-${pad(day)}`, '08:00')}
+                      onMouseEnter={() => setHoveredDay(day)}
+                      onMouseLeave={() => setHoveredDay(null)}
+                      style={{
                       width:'100%', height:'100%', borderRadius:'10px',
-                      border: isSel && !isToday ? '1px solid var(--primary)' : '1px solid transparent',
-                      background: isToday ? 'var(--primary)' : isSel ? 'rgba(249,115,22,0.12)' : 'transparent',
+                      border: isSel && !isToday ? '1px solid var(--primary)' : hoveredDay === day && !isToday ? '1px dashed rgba(249,115,22,0.4)' : '1px solid transparent',
+                      background: isToday ? 'var(--primary)' : isSel ? 'rgba(249,115,22,0.12)' : hoveredDay === day ? 'rgba(249,115,22,0.06)' : 'transparent',
                       color: isToday ? 'white' : wknd && !isSel ? 'rgba(239,68,68,0.75)' : 'var(--foreground)',
                       cursor:'pointer', fontSize:'0.875rem', fontWeight: isToday || isSel ? 600 : 400,
                       display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'3px',
@@ -670,6 +677,10 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
   const wknd = isWeekend(date)
   const now = new Date()
   const nowTop = isToday ? (now.getHours() - START_H + now.getMinutes() / 60) * ROW_H : -1
+  const [hoverY, setHoverY] = useState<number | null>(null)
+
+  const SLOT_H = ROW_H / 4 // 15-min slot height
+  const snapY  = hoverY !== null ? Math.floor(hoverY / SLOT_H) * SLOT_H : null
 
   return (
     <div data-date={dateStr(date)} style={{ flex:1, minWidth: compact ? '80px' : '120px', display:'flex', flexDirection:'column', borderRight:'1px solid var(--border)' }}>
@@ -693,15 +704,33 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
       </div>
       )}
       {/* Time cells */}
-      <div onDoubleClick={onDoubleClickCell ? (e => {
-        const rect = e.currentTarget.getBoundingClientRect()
-        const relY = e.clientY - rect.top
-        onDoubleClickCell(dateStr(date), pxToTimeStr(relY))
-      }) : undefined} style={{ flex:1, position:'relative', background: wknd ? 'rgba(239,68,68,0.02)' : 'transparent' }}>
+      <div
+        onMouseMove={onDoubleClickCell ? (e => {
+          const rect = e.currentTarget.getBoundingClientRect()
+          setHoverY(e.clientY - rect.top)
+        }) : undefined}
+        onMouseLeave={onDoubleClickCell ? () => setHoverY(null) : undefined}
+        onDoubleClick={onDoubleClickCell ? (e => {
+          const rect = e.currentTarget.getBoundingClientRect()
+          const relY = e.clientY - rect.top
+          onDoubleClickCell(dateStr(date), pxToTimeStr(relY))
+        }) : undefined}
+        style={{ flex:1, position:'relative', background: wknd ? 'rgba(239,68,68,0.02)' : 'transparent', cursor: onDoubleClickCell ? 'cell' : 'default' }}>
         {/* Hour lines */}
         {HOURS.map(h => (
           <div key={h} style={{ position:'absolute', left:0, right:0, top:`${(h - START_H) * ROW_H}px`, height:`${ROW_H}px`, borderBottom:'1px solid var(--border)', boxSizing:'border-box' }} />
         ))}
+        {/* Hover slot highlight */}
+        {snapY !== null && (
+          <div style={{ position:'absolute', left:0, right:0, top:`${snapY}px`, height:`${SLOT_H}px`, background:'rgba(249,115,22,0.1)', borderRadius:'4px', zIndex:1, pointerEvents:'none', display:'flex', alignItems:'center', paddingLeft:'6px', gap:'4px' }}>
+            <div style={{ width:'14px', height:'14px', borderRadius:'50%', background:'var(--primary)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, opacity:0.85 }}>
+              <span style={{ color:'white', fontSize:'10px', fontWeight:700, lineHeight:1 }}>+</span>
+            </div>
+            <span style={{ fontSize:'0.65rem', fontWeight:600, color:'var(--primary)', opacity:0.9 }}>
+              {pxToTimeStr(snapY)}
+            </span>
+          </div>
+        )}
         {/* Current time line */}
         {nowTop >= 0 && nowTop <= (END_H - START_H) * ROW_H && (
           <div style={{ position:'absolute', left:0, right:0, top:`${nowTop}px`, zIndex:3, display:'flex', alignItems:'center' }}>
