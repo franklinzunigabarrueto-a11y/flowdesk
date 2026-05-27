@@ -67,6 +67,8 @@ CAMPOS REQUERIDOS:
 - task: solo title. due_date es opcional.
 - diary/greeting/off_topic: no requieren data.
 
+EMOJIS EN TÍTULOS: Siempre agrega un emoji relevante al inicio del "title" de tasks y events. Elige según el contexto. Ejemplos: 🔧 reparación/mantención, 🪟 ventana/vidrio, 🚛 camión/transporte, 🏗️ obra/faena, 📋 reunión/junta, 📞 llamada, 🧱 hormigón/moldaje, 💡 inspección eléctrica, 🪛 instalación, 🌧️ lluvia/techado, 📐 replanteo/topografía, 📦 pedido/material, 💰 pago/factura, 🩺 médico/salud, ✈️ viaje, 🍽️ almuerzo/comida.
+
 REGLAS CRÍTICAS DE FECHA:
 - "hoy" = la fecha actual proporcionada, sin excepción. NUNCA mover al día siguiente.
 - "mañana" = fecha actual + 1 día.
