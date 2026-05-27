@@ -250,6 +250,47 @@ export async function POST(request: Request) {
       console.error('[claim error]', claimError)
     }
 
+    // ── Rate limit checks (before any Gemini call) ──────────────────────────
+    // Uses processed diary_entries (content != '__processing__') as a proxy for
+    // AI calls. On limit exceeded: delete the claim so the message can retry later.
+    const BURST_LIMIT  = 5   // max per user per minute
+    const HOURLY_LIMIT = 30  // max per user per hour
+    const DAILY_GLOBAL = 500 // max AI calls across ALL users per day (budget guard)
+
+    const nowIso        = new Date().toISOString()
+    const oneMinuteAgo  = new Date(Date.now() - 60_000).toISOString()
+    const oneHourAgo    = new Date(Date.now() - 3_600_000).toISOString()
+    const todayStart    = `${today}T00:00:00.000Z`
+
+    const [{ count: burstCount }, { count: hourlyCount }, { count: globalCount }] = await Promise.all([
+      supabase.from('diary_entries').select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id).neq('content', '__processing__').gte('created_at', oneMinuteAgo),
+      supabase.from('diary_entries').select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id).neq('content', '__processing__').gte('created_at', oneHourAgo),
+      supabase.from('diary_entries').select('id', { count: 'exact', head: true })
+        .neq('content', '__processing__').gte('created_at', todayStart),
+    ])
+
+    const deleteClaim = () =>
+      supabase.from('diary_entries').delete().eq('whatsapp_message_id', messageId).eq('user_id', user.id)
+
+    if ((burstCount ?? 0) >= BURST_LIMIT) {
+      await deleteClaim()
+      try { await sendWhatsAppMessage(from, '⚠️ Muchos mensajes seguidos. Espera un momento antes de continuar. 🙏') } catch (e) {}
+      return NextResponse.json({ ok: true })
+    }
+    if ((hourlyCount ?? 0) >= HOURLY_LIMIT) {
+      await deleteClaim()
+      try { await sendWhatsAppMessage(from, '⚠️ Alcanzaste el límite por hora. Espera unos minutos e intenta de nuevo.') } catch (e) {}
+      return NextResponse.json({ ok: true })
+    }
+    if ((globalCount ?? 0) >= DAILY_GLOBAL) {
+      await deleteClaim()
+      try { await sendWhatsAppMessage(from, '⚠️ El sistema alcanzó su límite diario de procesamiento. Podrás volver a usarlo mañana.') } catch (e) {}
+      return NextResponse.json({ ok: true })
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     // Check if this is the first completed message of the day (ignore current __processing__ placeholder)
     const { count: todayCount } = await supabase
       .from('diary_entries')
@@ -260,13 +301,15 @@ export async function POST(request: Request) {
       .neq('content', '__processing__')
     const isFirstMessageToday = (todayCount ?? 0) === 0
 
+    const MAX_TEXT_LENGTH = 2000 // chars sent to Gemini — cap to limit token cost
+
     if (message.type === 'text') {
-      textContent = message.text.body
+      textContent = message.text.body.substring(0, MAX_TEXT_LENGTH)
 
     } else if (message.type === 'audio') {
       try {
         const { data: audioData, mimeType } = await downloadWhatsAppMedia(message.audio.id)
-        textContent = await transcribeAudio(audioData, mimeType)
+        textContent = (await transcribeAudio(audioData, mimeType)).substring(0, MAX_TEXT_LENGTH)
       } catch (e: any) {
         console.error('Error transcribiendo audio — status:', e?.status, 'message:', e?.message, 'full:', JSON.stringify(e))
         try { await sendWhatsAppMessage(from, 'No pude procesar el audio. Intenta enviarlo de nuevo o escríbeme el mensaje. 😅') } catch (e2) {}
