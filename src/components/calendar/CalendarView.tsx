@@ -590,7 +590,7 @@ function TimeGrid({ children, noAxisHeader }: { children: React.ReactNode; noAxi
     <div style={{ display:'flex', border:'1px solid var(--border)', borderTop: noAxisHeader ? 'none' : '1px solid var(--border)', borderRadius: noAxisHeader ? '0 0 16px 16px' : '16px', overflow:'hidden', background:'var(--surface)' }}>
       {/* Time axis */}
       <div style={{ width:'52px', flexShrink:0, borderRight:'1px solid var(--border)', background:'var(--surface)' }}>
-        {!noAxisHeader && <div style={{ height:'48px', borderBottom:'1px solid var(--border)' }} />}
+        {!noAxisHeader && <div style={{ height:'62px', borderBottom:'1px solid var(--border)' }} />}
         {HOURS.map(h => (
           <div key={h} style={{ height:`${ROW_H}px`, display:'flex', alignItems:'flex-start', justifyContent:'center', paddingTop:'4px', fontSize:'0.65rem', color:'var(--text-muted)', borderBottom:'1px solid var(--border)', fontWeight:500 }}>
             {pad(h)}:00
@@ -625,7 +625,7 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
       {!noHeader && (
       <div
         onClick={onHeaderClick}
-        style={{ height:'48px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px', borderBottom:'1px solid var(--border)', background: wknd ? 'rgba(239,68,68,0.04)' : isToday ? 'rgba(249,115,22,0.06)' : 'var(--surface)', cursor: onHeaderClick ? 'pointer' : 'default', flexShrink:0 }}>
+        style={{ height:'62px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px', borderBottom:'1px solid var(--border)', background: wknd ? 'rgba(239,68,68,0.04)' : isToday ? 'rgba(249,115,22,0.06)' : 'var(--surface)', cursor: onHeaderClick ? 'pointer' : 'default', flexShrink:0 }}>
         <span style={{ fontSize:'0.65rem', fontWeight:600, color: wknd ? 'rgba(239,68,68,0.6)' : 'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.05em' }}>
           {compact ? DAY_SHORT[(date.getDay() + 6) % 7] : DAY_FULL[(date.getDay() + 6) % 7]}
         </span>
@@ -858,7 +858,7 @@ function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onM
             const wknd    = isWeekend(d)
             return (
               <div key={dateStr(d)} onClick={() => onDayClick(d)}
-                style={{ flex:1, minWidth:'80px', height:'48px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px', borderRight:'1px solid var(--border)', cursor:'pointer', background: wknd ? 'rgba(239,68,68,0.04)' : isToday ? 'rgba(249,115,22,0.06)' : 'var(--surface)' }}>
+                style={{ flex:1, minWidth:'80px', height:'62px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px', borderRight:'1px solid var(--border)', cursor:'pointer', background: wknd ? 'rgba(239,68,68,0.04)' : isToday ? 'rgba(249,115,22,0.06)' : 'var(--surface)' }}>
                 <span style={{ fontSize:'0.65rem', fontWeight:600, color: wknd ? 'rgba(239,68,68,0.6)' : 'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.05em' }}>
                   {DAY_SHORT[(d.getDay() + 6) % 7]}
                 </span>
@@ -902,7 +902,7 @@ function DayView({ events, today, date, onEventClick, onResize, onMove }: {
       {/* Sticky day header row */}
       <div style={{ position:'sticky', top:0, zIndex:10, display:'flex', background:'var(--surface)', border:'1px solid var(--border)', borderBottom:'none', borderRadius:'16px 16px 0 0', flexShrink:0 }}>
         <div style={{ width:'52px', flexShrink:0, borderRight:'1px solid var(--border)' }} />
-        <div style={{ flex:1, height:'48px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px', background: wknd ? 'rgba(239,68,68,0.04)' : isToday ? 'rgba(249,115,22,0.06)' : 'var(--surface)' }}>
+        <div style={{ flex:1, height:'62px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px', background: wknd ? 'rgba(239,68,68,0.04)' : isToday ? 'rgba(249,115,22,0.06)' : 'var(--surface)' }}>
           <span style={{ fontSize:'0.65rem', fontWeight:600, color: wknd ? 'rgba(239,68,68,0.6)' : 'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.05em' }}>
             {DAY_FULL[(date.getDay() + 6) % 7]}
           </span>
