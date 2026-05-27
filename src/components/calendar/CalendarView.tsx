@@ -69,6 +69,12 @@ function pxToTimeStr(px: number): string {
   const m = Math.max(0, Math.min(59, Math.round((totalH - Math.floor(totalH)) * 60)))
   return m === 60 ? `${pad(Math.min(h + 1, 23))}:00` : `${pad(h)}:${pad(m)}`
 }
+function snapTime15(t: string): string {
+  const [h, m] = t.split(':').map(Number)
+  const snap = Math.round(m / 15) * 15
+  if (snap >= 60) return `${pad(Math.min(h + 1, 23))}:00`
+  return `${pad(h)}:${pad(snap)}`
+}
 function autoEndTime(start: string): string {
   if (!start) return ''
   const [h, m] = start.split(':').map(Number)
@@ -83,8 +89,9 @@ export default function CalendarView() {
   const [view,        setView]        = useState<View>('month')
   const [curDate,     setCurDate]     = useState(today)
   const [selDay,      setSelDay]      = useState(today.getDate())
-  const [showForm,    setShowForm]    = useState(false)
-  const [saving,      setSaving]      = useState(false)
+  const [showForm,       setShowForm]       = useState(false)
+  const [showQuickCreate,setShowQuickCreate] = useState(false)
+  const [saving,         setSaving]         = useState(false)
   const [deletingId,  setDeletingId]  = useState<string | null>(null)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const [popupEvent,  setPopupEvent]  = useState<CalendarEvent | null>(null)
@@ -188,7 +195,7 @@ export default function CalendarView() {
         body: JSON.stringify({ title: newEv.title, description: newEv.description, start_time, end_time, image_url: createImg }),
       })
       setNewEv({ title: '', date: '', time: '', endTime: '', description: '' })
-      setCreateImg(null); setShowForm(false); mutate()
+      setCreateImg(null); setShowForm(false); setShowQuickCreate(false); mutate()
     } finally { setSaving(false) }
   }
 
@@ -244,6 +251,13 @@ export default function CalendarView() {
       })
       setPopupEvent(null); setPopupEditing(false); mutate()
     } finally { setEditSaving(false) }
+  }
+
+  function openQuickCreate(date: string, time: string) {
+    const snapped = snapTime15(time)
+    setNewEv({ title: '', date, time: snapped, endTime: autoEndTime(snapped), description: '' })
+    setCreateImg(null)
+    setShowQuickCreate(true)
   }
 
   function eventsForDay(d: Date) { return events.filter(e => dateStr(new Date(e.start)) === dateStr(d)) }
@@ -346,6 +360,41 @@ export default function CalendarView() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Quick-create modal (double-click) */}
+      {showQuickCreate && (
+        <div onClick={() => setShowQuickCreate(false)} style={{ position:'fixed', inset:0, zIndex:600, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', backdropFilter:'blur(4px)' }}>
+          <form onSubmit={createEvent} onClick={e => e.stopPropagation()} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'20px', width:'420px', maxWidth:'94vw', boxShadow:'0 24px 80px rgba(0,0,0,0.25)', animation:'fadeIn 0.18s ease', overflow:'hidden' }}>
+            <div style={{ height:'4px', background:'var(--primary)' }} />
+            <div style={{ padding:'1.5rem', display:'flex', flexDirection:'column', gap:'12px' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <span style={{ fontSize:'0.82rem', fontWeight:600, color:'var(--text-muted)' }}>Nuevo evento</span>
+                <button type="button" onClick={() => setShowQuickCreate(false)} style={{ background:'transparent', border:'none', cursor:'pointer', color:'var(--text-muted)', padding:'4px', borderRadius:'6px', display:'flex', alignItems:'center' }}><X size={16} /></button>
+              </div>
+              <input autoFocus type="text" placeholder="Título del evento..." value={newEv.title} required
+                onChange={e => setNewEv(p => ({ ...p, title: e.target.value }))}
+                style={{ padding:'10px 14px', borderRadius:'10px', background:'var(--background)', border:'1px solid var(--border)', color:'var(--foreground)', fontSize:'1rem', outline:'none', fontWeight:600 }} />
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px' }}>
+                <DatePicker value={newEv.date} onChange={d => setNewEv(p => ({ ...p, date: d }))} />
+                <TimePicker label="Inicio" value={newEv.time} onChange={t => setNewEv(p => ({ ...p, time: t, endTime: p.endTime && p.endTime > t ? p.endTime : autoEndTime(t) }))} />
+                <TimePicker label="Término" value={newEv.endTime} onChange={t => setNewEv(p => ({ ...p, endTime: t }))} />
+              </div>
+              {newEv.time && newEv.endTime && (
+                <p style={{ fontSize:'0.75rem', color:'var(--text-muted)', margin:0 }}>🕐 {newEv.time} → {newEv.endTime}</p>
+              )}
+              <input type="text" placeholder="Descripción (opcional)" value={newEv.description}
+                onChange={e => setNewEv(p => ({ ...p, description: e.target.value }))}
+                style={{ padding:'9px 14px', borderRadius:'10px', background:'var(--background)', border:'1px solid var(--border)', color:'var(--foreground)', fontSize:'0.875rem', outline:'none' }} />
+              <div style={{ display:'flex', gap:'8px', justifyContent:'flex-end', marginTop:'4px' }}>
+                <button type="button" onClick={() => setShowQuickCreate(false)} style={{ padding:'8px 16px', borderRadius:'8px', background:'transparent', border:'1px solid var(--border)', color:'var(--text-muted)', cursor:'pointer', fontSize:'0.875rem' }}>Cancelar</button>
+                <button type="submit" disabled={saving} style={{ padding:'8px 20px', borderRadius:'8px', background:'var(--primary)', border:'none', color:'white', cursor:'pointer', fontSize:'0.875rem', fontWeight:600, boxShadow:'0 0 12px var(--primary-glow)' }}>
+                  {saving ? 'Guardando...' : 'Crear evento'}
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
       )}
 
@@ -465,7 +514,7 @@ export default function CalendarView() {
                 const isSel = day === selDay
                 return (
                   <div key={day} style={{ padding:'2px', background: wknd ? 'rgba(239,68,68,0.05)' : 'transparent' }}>
-                    <button onClick={() => setSelDay(day)} style={{
+                    <button onClick={() => setSelDay(day)} onDoubleClick={() => openQuickCreate(`${year}-${pad(month+1)}-${pad(day)}`, '08:00')} style={{
                       width:'100%', height:'100%', borderRadius:'10px',
                       border: isSel && !isToday ? '1px solid var(--primary)' : '1px solid transparent',
                       background: isToday ? 'var(--primary)' : isSel ? 'rgba(249,115,22,0.12)' : 'transparent',
@@ -525,6 +574,7 @@ export default function CalendarView() {
             onDayClick={d => { setCurDate(d); setView('day') }}
             onResize={resizeEvent}
             onMove={resizeEvent}
+            onDoubleClickCell={openQuickCreate}
           />
         </div>
       )}
@@ -536,6 +586,7 @@ export default function CalendarView() {
             onEventClick={ev => { setPopupEvent(ev); setPopupEditing(false) }}
             onResize={resizeEvent}
             onMove={resizeEvent}
+            onDoubleClickCell={openQuickCreate}
           />
         </div>
       )}
@@ -605,7 +656,7 @@ function TimeGrid({ children, noAxisHeader }: { children: React.ReactNode; noAxi
   )
 }
 
-function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize, onMove, compact, noHeader }: {
+function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize, onMove, compact, noHeader, onDoubleClickCell }: {
   date: Date; events: CalendarEvent[]; today: Date
   onEventClick: (ev: CalendarEvent) => void
   onHeaderClick?: () => void
@@ -613,6 +664,7 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
   onMove?:   (id: string, start: string, end: string) => void
   compact?: boolean
   noHeader?: boolean
+  onDoubleClickCell?: (dateStr: string, time: string) => void
 }) {
   const isToday = isSameDay(date, today)
   const wknd = isWeekend(date)
@@ -641,7 +693,11 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
       </div>
       )}
       {/* Time cells */}
-      <div style={{ flex:1, position:'relative', background: wknd ? 'rgba(239,68,68,0.02)' : 'transparent' }}>
+      <div onDoubleClick={onDoubleClickCell ? (e => {
+        const rect = e.currentTarget.getBoundingClientRect()
+        const relY = e.clientY - rect.top
+        onDoubleClickCell(dateStr(date), pxToTimeStr(relY))
+      }) : undefined} style={{ flex:1, position:'relative', background: wknd ? 'rgba(239,68,68,0.02)' : 'transparent' }}>
         {/* Hour lines */}
         {HOURS.map(h => (
           <div key={h} style={{ position:'absolute', left:0, right:0, top:`${(h - START_H) * ROW_H}px`, height:`${ROW_H}px`, borderBottom:'1px solid var(--border)', boxSizing:'border-box' }} />
@@ -841,11 +897,12 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent }: {
 }
 
 /* ─── Week view ─── */
-function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onMove }: {
+function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onMove, onDoubleClickCell }: {
   events: CalendarEvent[]; today: Date; days: Date[]
   onEventClick: (ev: CalendarEvent) => void; onDayClick: (d: Date) => void
   onResize: (id: string, start: string, end: string) => void
   onMove:   (id: string, start: string, end: string) => void
+  onDoubleClickCell?: (date: string, time: string) => void
 }) {
   return (
     <>
@@ -881,6 +938,7 @@ function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onM
             onMove={onMove}
             compact
             noHeader
+            onDoubleClickCell={onDoubleClickCell}
           />
         ))}
       </TimeGrid>
@@ -889,11 +947,12 @@ function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onM
 }
 
 /* ─── Day view ─── */
-function DayView({ events, today, date, onEventClick, onResize, onMove }: {
+function DayView({ events, today, date, onEventClick, onResize, onMove, onDoubleClickCell }: {
   events: CalendarEvent[]; today: Date; date: Date
   onEventClick: (ev: CalendarEvent) => void
   onResize: (id: string, start: string, end: string) => void
   onMove:   (id: string, start: string, end: string) => void
+  onDoubleClickCell?: (date: string, time: string) => void
 }) {
   const isToday = isSameDay(date, today)
   const wknd    = isWeekend(date)
@@ -912,7 +971,7 @@ function DayView({ events, today, date, onEventClick, onResize, onMove }: {
         </div>
       </div>
       <TimeGrid noAxisHeader>
-        <DayColumn date={date} today={today} events={events} onEventClick={onEventClick} onResize={onResize} onMove={onMove} noHeader />
+        <DayColumn date={date} today={today} events={events} onEventClick={onEventClick} onResize={onResize} onMove={onMove} noHeader onDoubleClickCell={onDoubleClickCell} />
       </TimeGrid>
     </>
   )
