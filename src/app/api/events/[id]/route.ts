@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase-server'
-import { deleteCalendarEvent } from '@/lib/google-calendar'
 import { createClient } from '@supabase/supabase-js'
+import { updateCalendarEvent, deleteCalendarEvent } from '@/lib/google-calendar'
 
-function getSupabase() {
+function getAdminDb() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -17,24 +17,26 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { id } = await params
   const body = await request.json()
+  const adminDb = getAdminDb()
 
-  const adminSupabase = getSupabase()
-  const { data: event } = await adminSupabase
+  const { data: event } = await adminDb
     .from('calendar_events')
-    .select('google_event_id, start_time')
+    .select('google_event_id')
     .eq('id', id)
     .eq('user_id', user.id)
     .single()
 
   if (!event) return NextResponse.json({ error: 'Evento no encontrado' }, { status: 404 })
 
-  const updates: Record<string, string> = {}
-  if (body.title) updates.title = body.title
-  if (body.start_time) updates.start_time = body.start_time
-  if (body.end_time) updates.end_time = body.end_time
+  const updates: Record<string, any> = {}
+  if (body.title       !== undefined) updates.title       = body.title
+  if (body.start_time  !== undefined) updates.start_time  = body.start_time
+  if (body.end_time    !== undefined) updates.end_time    = body.end_time
   if (body.description !== undefined) updates.description = body.description
+  if (body.image_url   !== undefined) updates.image_url   = body.image_url
+  if (body.completed   !== undefined) updates.completed   = body.completed
 
-  const { data: updated, error } = await adminSupabase
+  const { data: updated, error } = await adminDb
     .from('calendar_events')
     .update(updates)
     .eq('id', id)
@@ -45,7 +47,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   if (event.google_event_id) {
-    const { data: profile } = await adminSupabase
+    const { data: profile } = await adminDb
       .from('users')
       .select('google_access_token, google_refresh_token')
       .eq('id', user.id)
@@ -53,18 +55,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     if (profile?.google_access_token) {
       try {
-        const { updateCalendarEvent } = await import('@/lib/google-calendar')
         await updateCalendarEvent({
-          accessToken: profile.google_access_token,
-          refreshToken: profile.google_refresh_token,
-          googleEventId: event.google_event_id,
-          title: body.title,
-          description: body.description,
-          startTime: body.start_time,
-          endTime: body.end_time,
+          accessToken:    profile.google_access_token,
+          refreshToken:   profile.google_refresh_token,
+          userId:         user.id,
+          adminDb,
+          googleEventId:  event.google_event_id,
+          title:          body.title,
+          description:    body.description,
+          startTime:      body.start_time,
+          endTime:        body.end_time,
         })
       } catch (e) {
-        console.error('Error actualizando Google Calendar:', e)
+        console.error('[google calendar update error]', e)
       }
     }
   }
@@ -78,9 +81,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
   const { id } = await params
+  const adminDb = getAdminDb()
 
-  const adminSupabase = getSupabase()
-  const { data: event } = await adminSupabase
+  const { data: event } = await adminDb
     .from('calendar_events')
     .select('google_event_id')
     .eq('id', id)
@@ -90,7 +93,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   if (!event) return NextResponse.json({ error: 'Evento no encontrado' }, { status: 404 })
 
   if (event.google_event_id) {
-    const { data: profile } = await adminSupabase
+    const { data: profile } = await adminDb
       .from('users')
       .select('google_access_token, google_refresh_token')
       .eq('id', user.id)
@@ -99,17 +102,19 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     if (profile?.google_access_token) {
       try {
         await deleteCalendarEvent({
-          accessToken: profile.google_access_token,
-          refreshToken: profile.google_refresh_token,
+          accessToken:   profile.google_access_token,
+          refreshToken:  profile.google_refresh_token,
+          userId:        user.id,
+          adminDb,
           googleEventId: event.google_event_id,
         })
       } catch (e) {
-        console.error('Error eliminando evento de Google Calendar:', e)
+        console.error('[google calendar delete error]', e)
       }
     }
   }
 
-  const { error } = await adminSupabase
+  const { error } = await adminDb
     .from('calendar_events')
     .delete()
     .eq('id', id)

@@ -1,0 +1,115 @@
+import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+import { fetchChangedEvents, registerWatch } from '@/lib/google-calendar'
+
+function getAdminDb() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
+
+/**
+ * Receives Google Calendar push-notification webhooks.
+ * Google POSTs here whenever events change on the user's primary calendar.
+ */
+export async function POST(request: Request) {
+  const state     = request.headers.get('X-Goog-Resource-State')
+  const channelId = request.headers.get('X-Goog-Channel-ID')
+
+  // Google's initial handshake — just acknowledge
+  if (state === 'sync') return NextResponse.json({ ok: true })
+
+  // Only process 'exists' (something changed)
+  if (!channelId || state !== 'exists') return NextResponse.json({ ok: true })
+
+  const adminDb = getAdminDb()
+
+  const { data: user } = await adminDb
+    .from('users')
+    .select('id, google_access_token, google_refresh_token, google_sync_token')
+    .eq('google_channel_id', channelId)
+    .single()
+
+  if (!user?.google_access_token || !user.google_sync_token) {
+    return NextResponse.json({ ok: true })
+  }
+
+  try {
+    const { items, newSyncToken } = await fetchChangedEvents({
+      userId:       user.id,
+      accessToken:  user.google_access_token,
+      refreshToken: user.google_refresh_token,
+      adminDb,
+      syncToken:    user.google_sync_token,
+    })
+
+    for (const gEvent of items) {
+      if (gEvent.status === 'cancelled') {
+        // Remove from FlowDesk if it came from Google
+        await adminDb
+          .from('calendar_events')
+          .delete()
+          .eq('google_event_id', gEvent.id)
+          .eq('user_id', user.id)
+        continue
+      }
+
+      const startTime = gEvent.start?.dateTime || gEvent.start?.date
+      const endTime   = gEvent.end?.dateTime   || gEvent.end?.date
+      if (!startTime) continue
+
+      const { data: existing } = await adminDb
+        .from('calendar_events')
+        .select('id')
+        .eq('google_event_id', gEvent.id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (existing) {
+        await adminDb
+          .from('calendar_events')
+          .update({
+            title:       gEvent.summary    || 'Sin título',
+            description: gEvent.description ?? null,
+            start_time:  startTime,
+            end_time:    endTime ?? null,
+          })
+          .eq('id', existing.id)
+      } else {
+        await adminDb
+          .from('calendar_events')
+          .insert({
+            user_id:         user.id,
+            google_event_id: gEvent.id,
+            title:           gEvent.summary    || 'Sin título',
+            description:     gEvent.description ?? null,
+            start_time:      startTime,
+            end_time:        endTime ?? null,
+          })
+      }
+    }
+
+    // Advance the sync token
+    await adminDb
+      .from('users')
+      .update({ google_sync_token: newSyncToken })
+      .eq('id', user.id)
+
+  } catch (e: any) {
+    if (e?.message === 'SYNC_TOKEN_EXPIRED') {
+      // syncToken is stale — re-register to get a fresh one
+      try {
+        await registerWatch({
+          userId:       user.id,
+          accessToken:  user.google_access_token,
+          refreshToken: user.google_refresh_token,
+          adminDb,
+        })
+      } catch {}
+    }
+    console.error('[google-sync webhook]', e)
+  }
+
+  return NextResponse.json({ ok: true })
+}

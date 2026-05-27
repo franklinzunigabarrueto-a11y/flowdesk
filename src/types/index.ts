@@ -34,6 +34,7 @@ export interface CalendarEvent {
   description?: string
   color?: string
   google_event_id?: string
+  completed?: boolean
 }
 
 export interface UserProfile {

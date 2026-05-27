@@ -246,6 +246,16 @@ export async function POST(request: Request) {
     const userTimezone = user.timezone || 'America/Santiago'
     const today = new Date().toLocaleDateString('en-CA', { timeZone: userTimezone })
 
+    // Atomic claim: insert placeholder before slow processing to prevent duplicate execution.
+    // Requires UNIQUE constraint on diary_entries.whatsapp_message_id.
+    const { error: claimError } = await supabase.from('diary_entries').insert({
+      user_id: user.id, content: '__processing__', entry_date: today, whatsapp_message_id: messageId,
+    })
+    if (claimError) {
+      if (claimError.code === '23505') return NextResponse.json({ ok: true }) // already claimed
+      console.error('[claim error]', claimError)
+    }
+
     if (message.type === 'text') {
       textContent = message.text.body
 
@@ -334,10 +344,10 @@ export async function POST(request: Request) {
       await supabase.from('users').update({
         pending_intent: result.stillPending.length > 0 ? result.stillPending : null
       }).eq('id', user.id)
-      await supabase.from('diary_entries').insert({
-        user_id: user.id, content: textContent, entry_date: today, whatsapp_message_id: messageId,
-        image_url: effectiveImageUrl || null,
-      })
+      await supabase.from('diary_entries')
+        .update({ content: textContent, image_url: effectiveImageUrl || null })
+        .eq('whatsapp_message_id', messageId)
+        .eq('user_id', user.id)
       try { await sendWhatsAppMessage(from, result.response) } catch (e) {}
       return NextResponse.json({ ok: true })
     }
@@ -396,10 +406,10 @@ export async function POST(request: Request) {
       await supabase.from('users').update({ pending_intent: pendingToStore }).eq('id', user.id)
     }
 
-    await supabase.from('diary_entries').insert({
-      user_id: user.id, content: textContent, entry_date: today, whatsapp_message_id: messageId,
-      image_url: effectiveImageUrl || null,
-    })
+    await supabase.from('diary_entries')
+      .update({ content: textContent, image_url: effectiveImageUrl || null })
+      .eq('whatsapp_message_id', messageId)
+      .eq('user_id', user.id)
 
     try { await sendWhatsAppMessage(from, intent.response) } catch (e) {}
     return NextResponse.json({ ok: true })

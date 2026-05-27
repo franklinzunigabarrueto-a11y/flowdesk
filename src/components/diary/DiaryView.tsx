@@ -53,7 +53,7 @@ export default function DiaryView() {
   const isSelectedToday = isToday(new Date(selectedDate + 'T12:00:00'))
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto', height: '100%', overflowY: 'auto', boxSizing: 'border-box' }}>
       {/* Header */}
       <div style={{ marginBottom: '1.5rem' }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Bitácora de obra</h1>

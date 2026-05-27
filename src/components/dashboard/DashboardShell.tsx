@@ -37,6 +37,12 @@ export default function DashboardShell({ user, children }: Props) {
     document.documentElement.setAttribute('data-theme', initial)
   }, [])
 
+  // Register (or renew) Google Calendar webhook on every dashboard mount.
+  // The route skips the call if the existing channel is still valid.
+  useEffect(() => {
+    fetch('/api/events/google-sync/register', { method: 'POST' }).catch(() => {})
+  }, [])
+
   useEffect(() => {
     if (!menuOpen) return
     const handler = (e: MouseEvent) => {
@@ -72,7 +78,7 @@ export default function DashboardShell({ user, children }: Props) {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--background)' }}>
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--background)' }}>
       {/* Sidebar */}
       <aside style={{
         width: '220px', flexShrink: 0,
@@ -199,7 +205,7 @@ export default function DashboardShell({ user, children }: Props) {
       </aside>
 
       {/* Main */}
-      <main style={{ flex: 1, marginLeft: '220px', minHeight: '100vh', overflow: 'auto' }}>
+      <main style={{ flex: 1, marginLeft: '220px', height: '100vh', overflow: 'hidden' }}>
         {children}
       </main>
 

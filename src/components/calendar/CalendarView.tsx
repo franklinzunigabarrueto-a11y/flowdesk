@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import useSWR from 'swr'
-import { ChevronLeft, ChevronRight, Plus, Clock, Trash2, X, Pencil, Check, Paperclip } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Clock, Trash2, X, Pencil, Check, Paperclip, Circle, CheckCircle } from 'lucide-react'
 import { CalendarEvent } from '@/types'
 import DatePicker from '@/components/ui/DatePicker'
+import { createClient } from '@/lib/supabase'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
@@ -13,8 +14,8 @@ const DAY_SHORT  = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const DAY_FULL   = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
 const MONTHS     = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 const COLORS     = ['#f97316','#3b82f6','#22c55e','#ef4444','#8b5cf6','#f59e0b']
-const START_H    = 6
-const END_H      = 22
+const START_H    = 0
+const END_H      = 24
 const ROW_H      = 56   // px per hour
 
 const DURATIONS = (() => {
@@ -62,6 +63,18 @@ function durationLabel(event: CalendarEvent): string {
   return h > 0 && m > 0 ? `${h}h ${m}min` : h > 0 ? `${h}h` : `${m}min`
 }
 function pad(n: number) { return String(n).padStart(2, '0') }
+function pxToTimeStr(px: number): string {
+  const totalH = START_H + px / ROW_H
+  const h = Math.max(0, Math.min(23, Math.floor(totalH)))
+  const m = Math.max(0, Math.min(59, Math.round((totalH - Math.floor(totalH)) * 60)))
+  return m === 60 ? `${pad(Math.min(h + 1, 23))}:00` : `${pad(h)}:${pad(m)}`
+}
+function autoEndTime(start: string): string {
+  if (!start) return ''
+  const [h, m] = start.split(':').map(Number)
+  const total = h * 60 + m + 60
+  return `${pad(Math.min(Math.floor(total / 60), 23))}:${pad(total % 60)}`
+}
 
 /* ─── Main component ─── */
 export default function CalendarView() {
@@ -77,12 +90,12 @@ export default function CalendarView() {
   const [popupEvent,  setPopupEvent]  = useState<CalendarEvent | null>(null)
   const [popupEditing,setPopupEditing]= useState(false)
 
-  const [newEv, setNewEv] = useState({ title: '', date: '', time: '', duration: 60, description: '' })
+  const [newEv, setNewEv] = useState({ title: '', date: '', time: '', endTime: '', description: '' })
   const [createImg, setCreateImg] = useState<string | null>(null)
   const [createUpl, setCreateUpl] = useState(false)
   const [createDrag,setCreateDrag]= useState(false)
 
-  const [editDraft, setEditDraft] = useState({ title: '', date: '', time: '', duration: 60, description: '' })
+  const [editDraft, setEditDraft] = useState({ title: '', date: '', time: '', endTime: '', description: '' })
   const [editImg,   setEditImg]   = useState<string | null>(null)
   const [editUpl,   setEditUpl]   = useState(false)
   const [editDrag,  setEditDrag]  = useState(false)
@@ -116,6 +129,18 @@ export default function CalendarView() {
   })()
   const { data: eventsData, mutate } = useSWR(swrKey, fetcher)
   const events: CalendarEvent[] = eventsData?.events ?? []
+
+  /* Supabase Realtime — refetch instantly when calendar_events changes (e.g. from Google Calendar webhook) */
+  useEffect(() => {
+    const supabase = createClient()
+    const channel = supabase
+      .channel('calendar_events_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_events' }, () => {
+        mutate()
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [mutate])
 
   /* Navigation */
   function goBack() {
@@ -157,20 +182,36 @@ export default function CalendarView() {
     setSaving(true)
     try {
       const start_time = `${newEv.date}T${newEv.time}:00`
-      const end_time   = endTime(newEv.date, newEv.time, newEv.duration)
+      const end_time   = newEv.endTime ? `${newEv.date}T${newEv.endTime}:00` : undefined
       await fetch('/api/events', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: newEv.title, description: newEv.description, start_time, end_time, image_url: createImg }),
       })
-      setNewEv({ title: '', date: '', time: '', duration: 60, description: '' })
+      setNewEv({ title: '', date: '', time: '', endTime: '', description: '' })
       setCreateImg(null); setShowForm(false); mutate()
     } finally { setSaving(false) }
+  }
+
+  async function resizeEvent(id: string, newStart: string, newEnd: string) {
+    await fetch(`/api/events/${id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ start_time: newStart, end_time: newEnd }),
+    })
+    mutate()
   }
 
   async function deleteEvent(id: string) {
     setDeletingId(id)
     try { await fetch(`/api/events/${id}`, { method: 'DELETE' }); mutate() }
     finally { setDeletingId(null) }
+  }
+
+  async function toggleEventComplete(event: CalendarEvent) {
+    await fetch(`/api/events/${event.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ completed: !event.completed }),
+    })
+    mutate()
   }
 
   async function uploadFile(file: File, setUrl: (u: string) => void, setUpl: (b: boolean) => void) {
@@ -184,9 +225,9 @@ export default function CalendarView() {
 
   function openEditPopup(event: CalendarEvent) {
     const d = new Date(event.start)
-    let duration = 60
-    if (event.end) duration = Math.max(15, Math.round((new Date(event.end).getTime() - d.getTime()) / 60000))
-    setEditDraft({ title: event.title, date: `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`, time: `${pad(d.getHours())}:${pad(d.getMinutes())}`, duration, description: event.description || '' })
+    const timeStr = `${pad(d.getHours())}:${pad(d.getMinutes())}`
+    const endStr  = event.end ? `${pad(new Date(event.end).getHours())}:${pad(new Date(event.end).getMinutes())}` : autoEndTime(timeStr)
+    setEditDraft({ title: event.title, date: `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`, time: timeStr, endTime: endStr, description: event.description || '' })
     setEditImg((event as any).image_url || null)
     setPopupEditing(true)
   }
@@ -196,7 +237,7 @@ export default function CalendarView() {
     setEditSaving(true)
     try {
       const start_time = `${editDraft.date}T${editDraft.time}:00`
-      const end_time   = endTime(editDraft.date, editDraft.time, editDraft.duration)
+      const end_time   = editDraft.endTime ? `${editDraft.date}T${editDraft.endTime}:00` : undefined
       await fetch(`/api/events/${popupEvent.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: editDraft.title, start_time, end_time, description: editDraft.description, image_url: editImg }),
@@ -205,7 +246,7 @@ export default function CalendarView() {
     } finally { setEditSaving(false) }
   }
 
-  function eventsForDay(d: Date) { return events.filter(e => e.start.startsWith(dateStr(d))) }
+  function eventsForDay(d: Date) { return events.filter(e => dateStr(new Date(e.start)) === dateStr(d)) }
 
   /* Month-specific */
   const firstDay    = (new Date(year, month, 1).getDay() + 6) % 7
@@ -225,7 +266,7 @@ export default function CalendarView() {
 
   /* ── Render ── */
   return (
-    <div style={{ padding: '2rem', maxWidth: '1100px', margin: '0 auto' }}>
+    <div style={{ padding: '1.5rem', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', overflow: 'hidden' }}>
 
       {/* Lightbox */}
       {lightboxUrl && (
@@ -261,18 +302,14 @@ export default function CalendarView() {
                 <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
                   <input value={editDraft.title} onChange={e => setEditDraft(p => ({ ...p, title: e.target.value }))}
                     style={{ padding:'8px 12px', borderRadius:'9px', border:'1px solid var(--border)', background:'var(--background)', color:'var(--foreground)', fontSize:'0.9rem', outline:'none', fontWeight:600 }} />
+                  <DatePicker value={editDraft.date} onChange={d => setEditDraft(p => ({ ...p, date: d }))} />
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
-                    <DatePicker value={editDraft.date} onChange={d => setEditDraft(p => ({ ...p, date: d }))} />
-                    <input type="time" value={editDraft.time} onChange={e => setEditDraft(p => ({ ...p, time: e.target.value }))}
-                      style={{ padding:'8px 12px', borderRadius:'9px', border:'1px solid var(--border)', background:'var(--background)', color:'var(--foreground)', fontSize:'0.85rem', outline:'none' }} />
+                    <TimePicker label="Inicio" value={editDraft.time} onChange={t => setEditDraft(p => ({ ...p, time: t, endTime: p.endTime && p.endTime > t ? p.endTime : autoEndTime(t) }))} />
+                    <TimePicker label="Término" value={editDraft.endTime} onChange={t => setEditDraft(p => ({ ...p, endTime: t }))} />
                   </div>
-                  <select value={editDraft.duration} onChange={e => setEditDraft(p => ({ ...p, duration: Number(e.target.value) }))}
-                    style={{ padding:'8px 12px', borderRadius:'9px', border:'1px solid var(--border)', background:'var(--background)', color:'var(--foreground)', fontSize:'0.85rem', outline:'none' }}>
-                    {DURATIONS.map(d => <option key={d.minutes} value={d.minutes}>{d.label}</option>)}
-                  </select>
-                  {editDraft.date && editDraft.time && (
+                  {editDraft.time && editDraft.endTime && (
                     <p style={{ fontSize:'0.75rem', color:'var(--text-muted)', margin:0 }}>
-                      🕐 {editDraft.time} → {calcEndPreview(editDraft.date, editDraft.time, editDraft.duration)} · {DURATIONS.find(d => d.minutes === editDraft.duration)?.label}
+                      🕐 {editDraft.time} → {editDraft.endTime}
                     </p>
                   )}
                   <input value={editDraft.description} placeholder="Descripción (opcional)"
@@ -313,7 +350,7 @@ export default function CalendarView() {
       )}
 
       {/* Header */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'1.5rem', flexWrap:'wrap', gap:'1rem' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'1rem', flexWrap:'wrap', gap:'1rem', flexShrink:0 }}>
         <div>
           <h1 style={{ fontSize:'1.5rem', fontWeight:700, margin:0 }}>Calendario</h1>
           <p style={{ color:'var(--text-muted)', fontSize:'0.875rem', margin:'2px 0 0' }}>Gestiona tus eventos y agenda de obra</p>
@@ -342,22 +379,18 @@ export default function CalendarView() {
 
       {/* Create form */}
       {showForm && (
-        <form onSubmit={createEvent} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'16px', padding:'1.5rem', marginBottom:'1.5rem', animation:'fadeIn 0.3s ease' }}>
+        <form onSubmit={createEvent} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'16px', padding:'1.5rem', marginBottom:'1rem', animation:'fadeIn 0.3s ease', flexShrink:0 }}>
           <div style={{ display:'grid', gap:'1rem' }}>
             <input type="text" placeholder="Título del evento..." value={newEv.title} required onChange={e => setNewEv(p => ({ ...p, title: e.target.value }))}
               style={{ padding:'10px 14px', borderRadius:'10px', background:'var(--background)', border:'1px solid var(--border)', color:'var(--foreground)', fontSize:'0.95rem', outline:'none' }} />
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'1rem' }}>
               <DatePicker value={newEv.date} onChange={d => setNewEv(p => ({ ...p, date: d }))} />
-              <input type="time" value={newEv.time} required onChange={e => setNewEv(p => ({ ...p, time: e.target.value }))}
-                style={{ padding:'10px 14px', borderRadius:'10px', background:'var(--background)', border:'1px solid var(--border)', color:'var(--foreground)', fontSize:'0.875rem', outline:'none' }} />
-              <select value={newEv.duration} onChange={e => setNewEv(p => ({ ...p, duration: Number(e.target.value) }))}
-                style={{ padding:'10px 14px', borderRadius:'10px', background:'var(--background)', border:'1px solid var(--border)', color:'var(--foreground)', fontSize:'0.875rem', outline:'none' }}>
-                {DURATIONS.map(d => <option key={d.minutes} value={d.minutes}>{d.label}</option>)}
-              </select>
+              <TimePicker label="Inicio" value={newEv.time} onChange={t => setNewEv(p => ({ ...p, time: t, endTime: p.endTime && p.endTime > t ? p.endTime : autoEndTime(t) }))} />
+              <TimePicker label="Término" value={newEv.endTime} onChange={t => setNewEv(p => ({ ...p, endTime: t }))} />
             </div>
-            {newEv.date && newEv.time && (
+            {newEv.time && newEv.endTime && (
               <p style={{ fontSize:'0.78rem', color:'var(--text-muted)', margin:0 }}>
-                🕐 <strong>{newEv.time}</strong> → <strong>{calcEndPreview(newEv.date, newEv.time, newEv.duration)}</strong> · {DURATIONS.find(d => d.minutes === newEv.duration)?.label}
+                🕐 <strong>{newEv.time}</strong> → <strong>{newEv.endTime}</strong>
               </p>
             )}
             <textarea placeholder="Descripción (opcional)..." value={newEv.description} rows={2} onChange={e => setNewEv(p => ({ ...p, description: e.target.value }))}
@@ -374,38 +407,54 @@ export default function CalendarView() {
         </form>
       )}
 
-      {/* Nav bar */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', marginBottom:'1rem', position:'relative' }}>
-        {/* ← título → agrupados en el centro */}
-        <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
-          <button onClick={goBack} style={{ width:'32px', height:'32px', borderRadius:'8px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--foreground)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <ChevronLeft size={16} />
-          </button>
-          <span style={{ fontSize:'0.95rem', fontWeight:600, minWidth:'220px', textAlign:'center' }}>{navTitle()}</span>
-          <button onClick={goForward} style={{ width:'32px', height:'32px', borderRadius:'8px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--foreground)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <ChevronRight size={16} />
-          </button>
+      {/* Nav bar — semana / día */}
+      {view !== 'month' && (
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', marginBottom:'1rem', flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+            <button onClick={goBack} style={{ width:'32px', height:'32px', borderRadius:'8px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--foreground)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <ChevronLeft size={16} />
+            </button>
+            <span style={{ fontSize:'0.95rem', fontWeight:600, minWidth:'220px', textAlign:'center' }}>{navTitle()}</span>
+            <button onClick={goForward} style={{ width:'32px', height:'32px', borderRadius:'8px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--foreground)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <ChevronRight size={16} />
+            </button>
+            <button onClick={goToday} style={{ padding:'6px 14px', borderRadius:'8px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text-muted)', cursor:'pointer', fontSize:'0.8rem', fontWeight:500 }}>
+              Hoy
+            </button>
+          </div>
         </div>
-        {/* Hoy — esquina derecha */}
-        <button onClick={goToday} style={{ position:'absolute', right:0, padding:'6px 14px', borderRadius:'8px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text-muted)', cursor:'pointer', fontSize:'0.8rem', fontWeight:500 }}>
-          Hoy
-        </button>
-      </div>
+      )}
 
       {/* ── Month view ── */}
       {view === 'month' && (
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 320px', gap:'1.5rem' }}>
-          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'20px', overflow:'hidden' }}>
+        <div style={{ flex:1, minHeight:0, display:'grid', gridTemplateColumns:'1fr 320px', gap:'1.5rem', overflow:'hidden' }}>
+          <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem', minHeight:0, overflow:'hidden' }}>
+            {/* Nav bar — dentro de la columna del calendario */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+                <button onClick={goBack} style={{ width:'32px', height:'32px', borderRadius:'8px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--foreground)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <ChevronLeft size={16} />
+                </button>
+                <span style={{ fontSize:'0.95rem', fontWeight:600, minWidth:'220px', textAlign:'center' }}>{navTitle()}</span>
+                <button onClick={goForward} style={{ width:'32px', height:'32px', borderRadius:'8px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--foreground)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <ChevronRight size={16} />
+                </button>
+                <button onClick={goToday} style={{ padding:'6px 14px', borderRadius:'8px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text-muted)', cursor:'pointer', fontSize:'0.8rem', fontWeight:500 }}>
+                  Hoy
+                </button>
+              </div>
+            </div>
+            <div style={{ flex:1, minHeight:0, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'20px', overflow:'hidden', display:'flex', flexDirection:'column' }}>
             {/* Day headers */}
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', padding:'1rem 1.5rem 0.5rem' }}>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', padding:'0.75rem 1.5rem 0.25rem', flexShrink:0 }}>
               {DAY_SHORT.map((d, idx) => (
                 <div key={d} style={{ textAlign:'center', fontSize:'0.75rem', fontWeight:600, padding:'0.5rem 0', color: isWkendCol(idx) ? 'rgba(239,68,68,0.55)' : 'var(--text-muted)', background: isWkendCol(idx) ? 'rgba(239,68,68,0.05)' : 'transparent' }}>{d}</div>
               ))}
             </div>
             {/* Grid */}
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', padding:'0 1.5rem 1.5rem', gap:0 }}>
+            <div style={{ flex:1, minHeight:0, display:'grid', gridTemplateColumns:'repeat(7,1fr)', gridAutoRows:'1fr', padding:'0 1.5rem 1rem', gap:0 }}>
               {Array.from({ length: firstDay }).map((_, i) => (
-                <div key={`e${i}`} style={{ aspectRatio:'1', background: isWkendCol(i) ? 'rgba(239,68,68,0.05)' : 'transparent' }} />
+                <div key={`e${i}`} style={{ background: isWkendCol(i) ? 'rgba(239,68,68,0.05)' : 'transparent' }} />
               ))}
               {Array.from({ length: daysInMonth }).map((_, i) => {
                 const day = i + 1
@@ -417,7 +466,7 @@ export default function CalendarView() {
                 return (
                   <div key={day} style={{ padding:'2px', background: wknd ? 'rgba(239,68,68,0.05)' : 'transparent' }}>
                     <button onClick={() => setSelDay(day)} style={{
-                      width:'100%', aspectRatio:'1', borderRadius:'10px',
+                      width:'100%', height:'100%', borderRadius:'10px',
                       border: isSel && !isToday ? '1px solid var(--primary)' : '1px solid transparent',
                       background: isToday ? 'var(--primary)' : isSel ? 'rgba(249,115,22,0.12)' : 'transparent',
                       color: isToday ? 'white' : wknd && !isSel ? 'rgba(239,68,68,0.75)' : 'var(--foreground)',
@@ -439,16 +488,17 @@ export default function CalendarView() {
               })}
             </div>
           </div>
+          </div>
 
           {/* Events panel */}
-          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'20px', overflow:'hidden' }}>
-            <div style={{ padding:'1.25rem 1.5rem', borderBottom:'1px solid var(--border)' }}>
+          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'20px', overflow:'hidden', display:'flex', flexDirection:'column', minHeight:0 }}>
+            <div style={{ padding:'1.25rem 1.5rem', borderBottom:'1px solid var(--border)', flexShrink:0 }}>
               <h3 style={{ fontSize:'0.95rem', fontWeight:600, margin:0 }}>
                 {isSameDay(selDate, today) ? 'Hoy' : `${selDay} de ${MONTHS[month]}`}
               </h3>
               <p style={{ fontSize:'0.8rem', color:'var(--text-muted)', margin:'4px 0 0' }}>{selEvents.length} evento{selEvents.length !== 1 ? 's' : ''}</p>
             </div>
-            <div style={{ padding:'1rem' }}>
+            <div style={{ padding:'1rem', flex:1, overflowY:'auto' }}>
               {selEvents.length === 0 ? (
                 <div style={{ textAlign:'center', padding:'2rem 1rem', color:'var(--text-muted)', fontSize:'0.85rem' }}>
                   <CalIcon size={32} style={{ margin:'0 auto 0.75rem', opacity:0.4 }} />
@@ -459,6 +509,7 @@ export default function CalendarView() {
                   onEdit={() => { setPopupEvent(ev); setPopupEditing(false); openEditPopup(ev) }}
                   onDelete={deleteEvent}
                   onLightbox={setLightboxUrl}
+                  onToggleComplete={toggleEventComplete}
                 />
               ))}
             </div>
@@ -468,44 +519,61 @@ export default function CalendarView() {
 
       {/* ── Week view ── */}
       {view === 'week' && (
-        <WeekView events={events} today={today} days={weekDays(curDate)}
-          onEventClick={ev => { setPopupEvent(ev); setPopupEditing(false) }}
-          onDayClick={d => { setCurDate(d); setView('day') }}
-        />
+        <div style={{ flex:1, minHeight:0, overflowY:'auto' }}>
+          <WeekView events={events} today={today} days={weekDays(curDate)}
+            onEventClick={ev => { setPopupEvent(ev); setPopupEditing(false) }}
+            onDayClick={d => { setCurDate(d); setView('day') }}
+            onResize={resizeEvent}
+            onMove={resizeEvent}
+          />
+        </div>
       )}
 
       {/* ── Day view ── */}
       {view === 'day' && (
-        <DayView events={eventsForDay(curDate)} today={today} date={curDate}
-          onEventClick={ev => { setPopupEvent(ev); setPopupEditing(false) }}
-        />
+        <div style={{ flex:1, minHeight:0, overflowY:'auto' }}>
+          <DayView events={eventsForDay(curDate)} today={today} date={curDate}
+            onEventClick={ev => { setPopupEvent(ev); setPopupEditing(false) }}
+            onResize={resizeEvent}
+            onMove={resizeEvent}
+          />
+        </div>
       )}
     </div>
   )
 }
 
 /* ─── Month event card (sidebar) ─── */
-function MonthEventCard({ event, index, deletingId, onEdit, onDelete, onLightbox }: {
+function MonthEventCard({ event, index, deletingId, onEdit, onDelete, onLightbox, onToggleComplete }: {
   event: CalendarEvent; index: number; deletingId: string | null
   onEdit: () => void; onDelete: (id: string) => void; onLightbox: (url: string) => void
+  onToggleComplete: (ev: CalendarEvent) => void
 }) {
   const color = event.color || COLORS[index % COLORS.length]
+  const done = !!event.completed
   return (
-    <div style={{ padding:'0.875rem', borderRadius:'12px', background:'var(--surface-hover)', border:`1px solid ${color}30`, marginBottom:'8px', borderLeft:`3px solid ${color}` }}>
+    <div style={{ padding:'0.875rem', borderRadius:'12px', background:'var(--surface-hover)', border:`1px solid ${color}30`, marginBottom:'8px', borderLeft:`3px solid ${done ? 'var(--border)' : color}`, opacity: done ? 0.6 : 1, transition:'opacity 0.2s' }}>
       <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:'8px' }}>
-        <p style={{ fontSize:'0.875rem', fontWeight:600, marginBottom:'4px', flex:1 }}>{event.title}</p>
+        <div style={{ display:'flex', alignItems:'flex-start', gap:'8px', flex:1, minWidth:0 }}>
+          <button onClick={() => onToggleComplete(event)} style={{ background:'none', border:'none', cursor:'pointer', padding:'1px', flexShrink:0, marginTop:'2px' }}>
+            {done
+              ? <CheckCircle size={16} color="#22c55e" />
+              : <Circle size={16} color="var(--text-muted)" />}
+          </button>
+          <p style={{ fontSize:'0.875rem', fontWeight:600, marginBottom:'4px', flex:1, textDecoration: done ? 'line-through' : 'none', color: done ? 'var(--text-muted)' : 'var(--foreground)' }}>{event.title}</p>
+        </div>
         <div style={{ display:'flex', gap:'4px', flexShrink:0 }}>
           <button onClick={onEdit} style={{ background:'transparent', border:'none', cursor:'pointer', color:'var(--text-muted)', padding:'2px', borderRadius:'6px' }}><Pencil size={13} /></button>
           <button onClick={() => onDelete(event.id)} disabled={deletingId === event.id} style={{ background:'transparent', border:'none', cursor:'pointer', color:'var(--text-muted)', padding:'2px', borderRadius:'6px', opacity: deletingId === event.id ? 0.4 : 1 }}><Trash2 size={14} /></button>
         </div>
       </div>
-      <div style={{ display:'flex', alignItems:'center', gap:'6px', color:'var(--text-muted)', fontSize:'0.78rem' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:'6px', color:'var(--text-muted)', fontSize:'0.78rem', marginLeft:'24px' }}>
         <Clock size={12} />
         {fmtTime(event.start)}
         {event.end && ` → ${fmtTime(event.end)}`}
-        {event.end && <span style={{ marginLeft:'4px', fontSize:'0.7rem', color, fontWeight:600 }}>{durationLabel(event)}</span>}
+        {event.end && <span style={{ marginLeft:'4px', fontSize:'0.7rem', color: done ? 'var(--text-muted)' : color, fontWeight:600 }}>{durationLabel(event)}</span>}
       </div>
-      {event.description && <p style={{ fontSize:'0.78rem', color:'var(--text-muted)', marginTop:'6px' }}>{event.description}</p>}
+      {event.description && <p style={{ fontSize:'0.78rem', color:'var(--text-muted)', marginTop:'6px', marginLeft:'24px' }}>{event.description}</p>}
       {(event as any).image_url && (
         <img src={(event as any).image_url} alt="Adjunto" onClick={() => onLightbox((event as any).image_url)}
           style={{ width:'100%', maxHeight:'120px', objectFit:'cover', borderRadius:'8px', marginTop:'8px', border:'1px solid var(--border)', cursor:'zoom-in' }} />
@@ -537,10 +605,12 @@ function TimeGrid({ children }: { children: React.ReactNode }) {
   )
 }
 
-function DayColumn({ date, events, today, onEventClick, onHeaderClick, compact }: {
+function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize, onMove, compact }: {
   date: Date; events: CalendarEvent[]; today: Date
   onEventClick: (ev: CalendarEvent) => void
   onHeaderClick?: () => void
+  onResize?: (id: string, start: string, end: string) => void
+  onMove?:   (id: string, start: string, end: string) => void
   compact?: boolean
 }) {
   const isToday = isSameDay(date, today)
@@ -549,7 +619,7 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, compact }
   const nowTop = isToday ? (now.getHours() - START_H + now.getMinutes() / 60) * ROW_H : -1
 
   return (
-    <div style={{ flex:1, minWidth: compact ? '80px' : '120px', display:'flex', flexDirection:'column', borderRight:'1px solid var(--border)' }}>
+    <div data-date={dateStr(date)} style={{ flex:1, minWidth: compact ? '80px' : '120px', display:'flex', flexDirection:'column', borderRight:'1px solid var(--border)' }}>
       {/* Day header */}
       <div
         onClick={onHeaderClick}
@@ -581,39 +651,198 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, compact }
           </div>
         )}
         {/* Events */}
-        {events.map(ev => <EventBlock key={ev.id} event={ev} onClick={() => onEventClick(ev)} />)}
+        {events.map(ev => <EventBlock key={ev.id} event={ev} onClick={() => onEventClick(ev)} onResize={onResize} onMove={onMove} />)}
       </div>
     </div>
   )
 }
 
-function EventBlock({ event, onClick }: { event: CalendarEvent; onClick: () => void }) {
-  const start  = new Date(event.start)
-  const endDt  = event.end ? new Date(event.end) : new Date(start.getTime() + 3600000)
-  const s = Math.max(start.getHours() + start.getMinutes() / 60, START_H)
-  const e = Math.min(endDt.getHours()  + endDt.getMinutes()  / 60, END_H)
-  const top    = (s - START_H) * ROW_H
-  const height = Math.max((e - s) * ROW_H, 18)
+function EventBlock({ event, onClick, onResize, onMove: onMoveEvent }: {
+  event: CalendarEvent; onClick: () => void
+  onResize?:  (id: string, start: string, end: string) => void
+  onMove?:    (id: string, start: string, end: string) => void
+}) {
+  const [liveTop,    setLiveTop]    = useState<number | null>(null)
+  const [liveHeight, setLiveHeight] = useState<number | null>(null)
+  const didDrag  = useRef(false)
+  const blockRef = useRef<HTMLDivElement>(null)
+
+  const startDt = new Date(event.start)
+  const endDt   = event.end ? new Date(event.end) : new Date(startDt.getTime() + 3600000)
+  const s = startDt.getHours() + startDt.getMinutes() / 60
+  const e = event.end ? (endDt.getHours() + endDt.getMinutes() / 60) : s + 1
+  const baseTop    = Math.max(0, (s - START_H) * ROW_H)
+  const baseHeight = Math.max((e - s) * ROW_H, ROW_H / 4)
+  const top    = liveTop    ?? baseTop
+  const height = liveHeight ?? baseHeight
   const color  = event.color || COLORS[0]
+  const dragging = liveTop !== null || liveHeight !== null
+
+  const pxPer15 = ROW_H / 4
+
+  function snapPx(px: number) { return Math.round(px / pxPer15) * pxPer15 }
+
+  function pxToISO(px: number, date: string): string {
+    const totalH = START_H + px / ROW_H
+    const h = Math.max(0, Math.min(23, Math.floor(totalH)))
+    const rawM = Math.round((totalH - Math.floor(totalH)) * 60)
+    const m = rawM >= 60 ? 0 : rawM
+    const [yr, mo, dy] = date.split('-').map(Number)
+    const d = new Date(yr, mo - 1, dy, h, m)
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`
+  }
+
+  function dateAtPoint(x: number, y: number): string | null {
+    for (const el of document.elementsFromPoint(x, y) as HTMLElement[]) {
+      if (el.dataset?.date) return el.dataset.date
+    }
+    return null
+  }
+
+  // ev.currentTarget (handle or body) → parent = outer wrapper → parent = time-cells container
+  function getContainer(target: EventTarget): HTMLElement | null {
+    return (target as HTMLElement).parentElement?.parentElement ?? null
+  }
+
+  const displayStart = dragging ? pxToTimeStr(top)          : fmtTime(event.start)
+  const displayEnd   = dragging ? pxToTimeStr(top + height) : (event.end ? fmtTime(event.end) : null)
+
+  function startDrag(ev: React.MouseEvent, edge: 'top' | 'bottom') {
+    ev.stopPropagation(); ev.preventDefault()
+    didDrag.current = false
+    const container = getContainer(ev.currentTarget)
+    if (!container) return
+
+    const origDate = dateStr(startDt)
+    const maxPx    = (END_H - START_H) * ROW_H
+    const endPosPx = baseTop + baseHeight
+
+    const getY = (me: MouseEvent) => me.clientY - container.getBoundingClientRect().top
+
+    const mmove = (me: MouseEvent) => {
+      didDrag.current = true
+      if (blockRef.current) blockRef.current.style.pointerEvents = 'none'
+      if (edge === 'top') {
+        const sn = snapPx(Math.max(0, Math.min(endPosPx - pxPer15, getY(me))))
+        setLiveTop(sn); setLiveHeight(endPosPx - sn)
+      } else {
+        const sn = snapPx(Math.max(baseTop + pxPer15, Math.min(maxPx, getY(me))))
+        setLiveHeight(sn - baseTop)
+      }
+    }
+
+    const mup = (me: MouseEvent) => {
+      window.removeEventListener('mousemove', mmove)
+      window.removeEventListener('mouseup', mup)
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+      if (blockRef.current) blockRef.current.style.pointerEvents = ''
+      if (!didDrag.current) { setLiveTop(null); setLiveHeight(null); return }
+
+      if (edge === 'top') {
+        const sn = snapPx(Math.max(0, Math.min(endPosPx - pxPer15, getY(me))))
+        setLiveTop(null); setLiveHeight(null)
+        if (onResize) onResize(event.id, pxToISO(sn, origDate), event.end ?? pxToISO(endPosPx, origDate))
+      } else {
+        const sn = snapPx(Math.max(baseTop + pxPer15, Math.min(maxPx, getY(me))))
+        setLiveHeight(null)
+        if (onResize) onResize(event.id, event.start, pxToISO(sn, origDate))
+      }
+    }
+
+    document.body.style.userSelect = 'none'
+    document.body.style.cursor = edge === 'bottom' ? 's-resize' : 'n-resize'
+    window.addEventListener('mousemove', mmove)
+    window.addEventListener('mouseup', mup)
+  }
+
+  function startMove(ev: React.MouseEvent) {
+    ev.stopPropagation(); ev.preventDefault()
+    didDrag.current = false
+    const container = getContainer(ev.currentTarget)
+    if (!container) return
+
+    // offset of click inside the event (so the block doesn't jump on first move)
+    const grabOffset = ev.clientY - container.getBoundingClientRect().top - baseTop
+    const maxTopPx   = (END_H - START_H) * ROW_H - baseHeight
+    const targetDate = { current: dateStr(startDt) }
+
+    const mmove = (me: MouseEvent) => {
+      didDrag.current = true
+      if (blockRef.current) blockRef.current.style.pointerEvents = 'none'
+      const rawY = me.clientY - container.getBoundingClientRect().top - grabOffset
+      const sn = snapPx(Math.max(0, Math.min(maxTopPx, rawY)))
+      setLiveTop(sn); setLiveHeight(baseHeight)
+      // pointer-events:none lets elementsFromPoint see through this block to the column below
+      const nd = dateAtPoint(me.clientX, me.clientY)
+      if (nd) targetDate.current = nd
+    }
+
+    const mup = (me: MouseEvent) => {
+      window.removeEventListener('mousemove', mmove)
+      window.removeEventListener('mouseup', mup)
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+      if (blockRef.current) blockRef.current.style.pointerEvents = ''
+      if (!didDrag.current) { setLiveTop(null); setLiveHeight(null); return }
+
+      const rawY = me.clientY - container.getBoundingClientRect().top - grabOffset
+      const sn   = snapPx(Math.max(0, Math.min(maxTopPx, rawY)))
+      const date = targetDate.current
+      setLiveTop(null); setLiveHeight(null)
+      if (onMoveEvent) onMoveEvent(event.id, pxToISO(sn, date), pxToISO(sn + baseHeight, date))
+    }
+
+    document.body.style.userSelect = 'none'
+    document.body.style.cursor = 'grabbing'
+    window.addEventListener('mousemove', mmove)
+    window.addEventListener('mouseup', mup)
+  }
 
   return (
-    <div onClick={onClick} style={{
-      position:'absolute', left:'3px', right:'3px', top:`${top}px`, height:`${height}px`,
-      borderRadius:'7px', background: color, padding:'3px 6px',
-      cursor:'pointer', overflow:'hidden', zIndex:2,
-      boxShadow:`0 1px 6px ${color}55`,
-      transition:'filter 0.15s',
-    }}>
-      <p style={{ fontSize:'0.72rem', fontWeight:700, color:'white', margin:0, lineHeight:1.3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{event.title}</p>
-      {height > 34 && <p style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.85)', margin:'2px 0 0' }}>{fmtTime(event.start)}{event.end ? ` – ${fmtTime(event.end)}` : ''}</p>}
+    <div
+      ref={blockRef}
+      onClick={() => { if (!didDrag.current) onClick() }}
+      style={{ position:'absolute', left:'3px', right:'3px', top:`${top}px`, height:`${height}px`, zIndex: dragging ? 10 : 2, userSelect:'none' }}
+    >
+      {/* Top resize handle */}
+      {onResize && (
+        <div onMouseDown={e => startDrag(e, 'top')} style={{ position:'absolute', top:'-4px', left:0, right:0, height:'10px', cursor:'n-resize', zIndex:4, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div style={{ width:'28px', height:'3px', borderRadius:'2px', background:'rgba(255,255,255,0.75)' }} />
+        </div>
+      )}
+
+      {/* Event body */}
+      <div
+        onMouseDown={onMoveEvent ? startMove : undefined}
+        style={{ width:'100%', height:'100%', borderRadius:'7px', background: color, padding:'4px 6px', overflow:'hidden', boxShadow:`0 1px 6px ${color}55`, cursor: dragging ? 'grabbing' : (onMoveEvent ? 'grab' : 'pointer'), transition: dragging ? 'none' : 'filter 0.15s', display:'flex', flexDirection:'column', justifyContent:'flex-start' }}
+      >
+        <p style={{ fontSize:'0.72rem', fontWeight:700, color:'white', margin:0, lineHeight:1.3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+          {event.title}
+        </p>
+        {height > 20 && (
+          <p style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.9)', margin:'2px 0 0', fontWeight: dragging ? 700 : 400 }}>
+            {displayStart}{displayEnd ? ` – ${displayEnd}` : ''}
+          </p>
+        )}
+      </div>
+
+      {/* Bottom resize handle */}
+      {onResize && (
+        <div onMouseDown={e => startDrag(e, 'bottom')} style={{ position:'absolute', bottom:'-4px', left:0, right:0, height:'10px', cursor:'s-resize', zIndex:4, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div style={{ width:'28px', height:'3px', borderRadius:'2px', background:'rgba(255,255,255,0.75)' }} />
+        </div>
+      )}
     </div>
   )
 }
 
 /* ─── Week view ─── */
-function WeekView({ events, today, days, onEventClick, onDayClick }: {
+function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onMove }: {
   events: CalendarEvent[]; today: Date; days: Date[]
   onEventClick: (ev: CalendarEvent) => void; onDayClick: (d: Date) => void
+  onResize: (id: string, start: string, end: string) => void
+  onMove:   (id: string, start: string, end: string) => void
 }) {
   return (
     <TimeGrid>
@@ -622,6 +851,8 @@ function WeekView({ events, today, days, onEventClick, onDayClick }: {
           events={events.filter(e => e.start.startsWith(dateStr(d)))}
           onEventClick={onEventClick}
           onHeaderClick={() => onDayClick(d)}
+          onResize={onResize}
+          onMove={onMove}
           compact
         />
       ))}
@@ -630,14 +861,81 @@ function WeekView({ events, today, days, onEventClick, onDayClick }: {
 }
 
 /* ─── Day view ─── */
-function DayView({ events, today, date, onEventClick }: {
+function DayView({ events, today, date, onEventClick, onResize, onMove }: {
   events: CalendarEvent[]; today: Date; date: Date
   onEventClick: (ev: CalendarEvent) => void
+  onResize: (id: string, start: string, end: string) => void
+  onMove:   (id: string, start: string, end: string) => void
 }) {
   return (
     <TimeGrid>
-      <DayColumn date={date} today={today} events={events} onEventClick={onEventClick} />
+      <DayColumn date={date} today={today} events={events} onEventClick={onEventClick} onResize={onResize} onMove={onMove} />
     </TimeGrid>
+  )
+}
+
+/* ─── TimePicker ─── */
+function TimePicker({ value, onChange, label }: { value: string; onChange: (v: string) => void; label?: string }) {
+  const [open, setOpen] = useState(false)
+  const ref     = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+
+  const slots = useMemo(() => {
+    const list: string[] = []
+    for (let h = 0; h < 24; h++)
+      for (let m = 0; m < 60; m += 15)
+        list.push(`${pad(h)}:${pad(m)}`)
+    return list
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [open])
+
+  useEffect(() => {
+    if (open && value && listRef.current) {
+      const idx = slots.indexOf(value)
+      if (idx >= 0) listRef.current.scrollTop = Math.max(0, idx * 34 - 68)
+    }
+  }, [open, value, slots])
+
+  return (
+    <div ref={ref} style={{ position:'relative' }}>
+      <button type="button" onClick={() => setOpen(o => !o)} style={{
+        width:'100%', display:'flex', alignItems:'center', gap:'6px',
+        padding:'10px 14px', borderRadius:'10px',
+        background:'var(--background)', border:`1px solid ${open ? 'var(--primary)' : 'var(--border)'}`,
+        color: value ? 'var(--foreground)' : 'var(--text-muted)',
+        cursor:'pointer', fontSize:'0.875rem', transition:'border-color 0.15s',
+      }}>
+        <Clock size={13} style={{ color:'var(--text-muted)', flexShrink:0 }} />
+        <span style={{ flex:1, textAlign:'left', fontWeight: value ? 500 : 400 }}>{value || (label ?? '--:--')}</span>
+      </button>
+      {open && (
+        <div ref={listRef} style={{
+          position:'absolute', top:'calc(100% + 4px)', left:0, zIndex:200,
+          background:'var(--surface)', border:'1px solid var(--border)',
+          borderRadius:'12px', boxShadow:'0 8px 28px rgba(0,0,0,0.13)',
+          maxHeight:'210px', overflowY:'auto', minWidth:'120px', padding:'4px',
+        }}>
+          {slots.map(slot => (
+            <button type="button" key={slot} onClick={() => { onChange(slot); setOpen(false) }} style={{
+              display:'block', width:'100%', padding:'6px 12px',
+              textAlign:'left', borderRadius:'7px', border:'none',
+              cursor:'pointer', fontSize:'0.82rem',
+              background: slot === value ? 'var(--primary)' : 'transparent',
+              color: slot === value ? 'white' : 'var(--foreground)',
+              fontWeight: slot === value ? 600 : 400,
+            }}>
+              {slot}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 

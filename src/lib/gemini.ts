@@ -1,7 +1,7 @@
 import { GoogleGenAI } from '@google/genai'
 
-const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! })
-const MODEL = 'gemini-2.0-flash-lite'
+const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY!, httpOptions: { apiVersion: 'v1beta' } })
+const MODEL = 'gemini-2.5-flash'
 
 export type IntentItem = {
   type: 'task' | 'event' | 'edit_event' | 'also_calendar' | 'pending_image' | 'needs_image' | 'awaiting_image' | 'diary' | 'task_complete' | 'greeting' | 'off_topic' | 'unknown'
@@ -74,7 +74,7 @@ REGLAS CRÍTICAS DE FECHA:
 - Usa SIEMPRE el offset de zona horaria del usuario en event_start/event_end.
 
 REGLAS DE RESPUESTA:
-- Saludos: saluda según la hora (Buenos días/tardes/noches), llama por nombre, pregunta en qué ayudar. Frases de obra: "¿Todo bien en terreno?", "¿Qué tienes pendiente hoy?".
+- Saludos: saluda según la hora (Buenos días/tardes/noches), llama por nombre, luego agrega UNA frase variada (nunca siempre la misma). Rota entre estas opciones: "¿Todo bien en terreno?", "¿En qué te puedo echar una mano?", "¿Para qué soy bueno hoy?", "¿Qué tienes pendiente?", "¿Cómo va la faena?", "¿Qué necesitas registrar?", "¿Algo que agendar?", "¿En qué andamos hoy?".
 - edit_event: confirma qué se cambió y en qué evento.
 - Off-topic: declina amablemente, recuerda en qué sí puedes ayudar.
 - Acciones: confirma brevemente. Pregunta SOLO por lo que falta.
@@ -258,18 +258,59 @@ export async function generateDiarySummary(
     })
     .join('\n')
 
-  const prompt = `Eres un asistente especializado en gestión de proyectos de construcción en Chile.
+  const prompt = `Eres un experto en gestión de obras de construcción en Chile con más de 20 años de experiencia. Conoces en profundidad el ciclo completo de obra, normativa NCh, coordinación con ITO (Inspección Técnica de Obra), planificación de partidas y riesgos frecuentes en faena.
+
+CONOCIMIENTO TÉCNICO QUE DEBES APLICAR AL ANALIZAR LAS ENTRADAS:
+
+HORMIGÓN Y MOLDAJES:
+- Desencofrado / descimbre: estructuras verticales (muros, pilares) → 24-48h. Losas y vigas: resistencia mínima 70% → typically 7 días con cemento corriente, 3-4 días con cemento de alta resistencia. Vigas grandes o luces largas: 14-21 días. Tiempo frío (bajo 10°C) extiende los plazos. Siempre según ET o especificaciones del calculista.
+- Post-hormigonado: curado húmedo mínimo 7 días. Evitar vibraciones ni cargas prematuras. Si hubo hormigonado, sugerir agendar revisión del curado y fecha estimada de desencofrado.
+- Fisuras en hormigón fresco: si son >0.3mm o estructurales, requieren notificación al ITO y registro fotográfico con referencia métrica inmediata.
+
+TECHUMBRES Y TRABAJOS EXTERIORES:
+- Instalación de techumbre, impermeabilización, trabajos con mortero exterior: verificar pronóstico de lluvia con 3-5 días de anticipación. En Chile, Región Metropolitana y sur: lluvias de mayo-agosto son frecuentes. No instalar membranas impermeabilizantes con humedad >85% o lluvia inminente.
+- Faenas de movimiento de tierras, excavaciones: evitar en días de lluvia intensa (riesgo de derrumbe, barro, problemas de compactación).
+- Hormigonado exterior: no realizar con temp. <5°C ni lluvia directa. Cubrir con polietileno si hay riesgo.
+
+COORDINACIÓN ITO / MANDANTE:
+- Cualquier cambio de especificación técnica (ET), cambio de materiales o de procedimiento requiere autorización escrita del ITO y registro en libro de obra.
+- Acuerdos verbales con ITO o mandante → SIEMPRE respaldar con correo o acta firmada el mismo día o al siguiente.
+- Visitas de inspección avisadas → preparar libro de obra, registros fotográficos y muestras de ensayos al día.
+
+SUBCONTRATOS Y CUADRILLAS:
+- Si se menciona inicio de faena de subcontrato → verificar: credenciales vigentes (contrato, seguro de accidentes), EPP completo, charla de inducción de seguridad.
+- Subcontrato de instalaciones (electricidad, gasfitería, HVAC): coordinar con calculista y arquitecto para verificar posiciones antes de hormigonar o cerrar.
+
+REPLANTEO Y TOPOGRAFÍA:
+- Replanteo recién realizado → confirmar con topógrafo antes de iniciar fundaciones. Cualquier desviación >2cm en ejes debe ser corregida y documentada.
+- Nivelar, anclar o aplamar antes de hormigonar.
+
+SEGURIDAD EN OBRA:
+- Trabajo en altura (+1.8m): andamios con barandas, arnés y línea de vida obligatorios según DS 594.
+- Mención de accidente, casi-accidente o condición insegura → requiere reporte inmediato, registro en libro de obra y notificación a prevencionista.
+- Excavaciones > 1.5m profundidad: entibaciones obligatorias.
+
+MATERIALES Y PROVEEDORES:
+- Si se pidió material y aún no llega → alertar antes de que detenga la faena.
+- Áridos, hormigón premezclado: confirmar recepción con guía de despacho y ensayo de cono de Abrams en obra.
+
+PLAZOS CONTRACTUALES:
+- Si se menciona avance menor al esperado → evaluar si hay riesgo de multa por atraso (boleta de garantía, multa por día).
+- Hitos contractuales próximos → alertar con 5-10 días de anticipación.
+
+---
+
 Analiza las siguientes entradas del diario de obra del día ${date}:
 
 ${entriesText}
 
 Genera:
-1. Un RESUMEN conciso del día (2-4 oraciones) que capture actividades principales, avances y situaciones relevantes del día en obra.
-2. Hasta 4 SUGERENCIAS específicas con enfoque constructivo. SOLO sugiere si hay algo concreto que recomendar basado en las entradas:
-   - "followup": seguimiento necesario (ej: hormigonado → agendar desencofrado en 3-7 días; replanteo → confirmar con topógrafo antes de iniciar fundaciones)
-   - "backup": respaldo importante (ej: acuerdo verbal con ITO o mandante → enviar correo de respaldo; cambio de especificación → documentar en libro de obra)
-   - "alert": alerta de coordinación o plazo (ej: faena mañana → confirmar disponibilidad de subcontrato y materiales; vencimiento de plazo contractual)
-   - "risk": riesgo identificado (ej: fisura reportada → generar registro fotográfico formal y notificar al ITO; trabajo en altura sin EPP mencionado)
+1. Un RESUMEN conciso del día (2-4 oraciones) que capture actividades principales, avances y situaciones técnicas relevantes. Usa lenguaje de obra.
+2. Hasta 4 SUGERENCIAS específicas y accionables. SOLO sugiere si hay algo concreto derivado de las entradas. Aplica el conocimiento técnico listado arriba para detectar plazos, riesgos y coordinaciones necesarias:
+   - "followup": acción de seguimiento con plazo estimado (ej: "Desencofrado losa: agendar inspección en 7 días"; "Confirmar avance topógrafo antes de iniciar fundaciones")
+   - "backup": respaldo necesario por escrito (ej: "Acuerdo verbal con ITO → enviar correo de confirmación hoy"; "Cambio de ET → documentar en libro de obra con firma")
+   - "alert": alerta de coordinación, plazo o condición externa (ej: "Instalación techumbre mañana → verificar pronóstico de lluvia"; "Faena con subcontrato → confirmar EPP e inducción")
+   - "risk": riesgo técnico, de seguridad o contractual (ej: "Fisura reportada → fotografía con escala y notificar ITO"; "Hormigonado bajo 5°C → protocolo de frío")
 
 Si no hay suficiente información para sugerencias útiles, devuelve "suggestions": [].
 
@@ -280,7 +321,7 @@ Responde SOLO con JSON válido:
     {
       "type": "followup|backup|alert|risk",
       "title": "Título corto máx 6 palabras",
-      "detail": "Explicación concreta de qué hacer y por qué es importante",
+      "detail": "Explicación concreta de qué hacer, cuándo y por qué es importante",
       "priority": "high|medium|low"
     }
   ]

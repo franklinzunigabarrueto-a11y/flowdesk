@@ -14,6 +14,7 @@ export async function GET(request: Request) {
     .from('diary_entries')
     .select('*')
     .eq('user_id', user.id)
+    .neq('content', '__processing__')
     .order('created_at', { ascending: false })
 
   if (date && !q) {

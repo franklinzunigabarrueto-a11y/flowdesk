@@ -31,7 +31,7 @@ export default function TasksView() {
   const { data, mutate } = useSWR('/api/tasks', fetcher)
   const tasks: Task[] = data?.tasks ?? []
   const loading = !data
-  const [filter, setFilter] = useState<TaskStatus | 'all'>('all')
+  const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all')
   const [showForm, setShowForm] = useState(false)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const closeLightbox = useCallback(() => setLightboxUrl(null), [])
@@ -113,13 +113,12 @@ export default function TasksView() {
   const filtered = filter === 'all' ? tasks : tasks.filter(t => t.status === filter)
   const counts = {
     all: tasks.length,
-    pending: tasks.filter(t => t.status === 'pending').length,
-    in_progress: tasks.filter(t => t.status === 'in_progress').length,
+    pending: tasks.filter(t => t.status === 'pending' || t.status === 'in_progress').length,
     completed: tasks.filter(t => t.status === 'completed').length,
   }
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '900px', margin: '0 auto' }}>
+    <div style={{ padding: '2rem', maxWidth: '900px', margin: '0 auto', height: '100%', overflowY: 'auto', boxSizing: 'border-box' }}>
       {lightboxUrl && (
         <div onClick={closeLightbox} style={{
           position: 'fixed', inset: 0, zIndex: 1000,
@@ -233,7 +232,7 @@ export default function TasksView() {
 
       {/* Filtros */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-        {(['all', 'pending', 'in_progress', 'completed'] as const).map(f => (
+        {(['all', 'pending', 'completed'] as const).map(f => (
           <button
             key={f}
             onClick={() => setFilter(f)}

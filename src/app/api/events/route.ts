@@ -1,5 +1,14 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase-server'
+import { createClient } from '@supabase/supabase-js'
+import { createCalendarEvent } from '@/lib/google-calendar'
+
+function getAdminDb() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -51,12 +60,44 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
   const body = await request.json()
-  const { data: event, error } = await supabase
+  const adminDb = getAdminDb()
+
+  const { data: event, error } = await adminDb
     .from('calendar_events')
     .insert({ ...body, user_id: user.id })
     .select()
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Sync to Google Calendar
+  const { data: profile } = await adminDb
+    .from('users')
+    .select('google_access_token, google_refresh_token')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.google_access_token && event) {
+    try {
+      const { googleEventId } = await createCalendarEvent({
+        accessToken:  profile.google_access_token,
+        refreshToken: profile.google_refresh_token,
+        userId:  user.id,
+        adminDb,
+        title:       event.title,
+        description: event.description,
+        startTime:   event.start_time,
+        endTime:     event.end_time,
+      })
+      await adminDb
+        .from('calendar_events')
+        .update({ google_event_id: googleEventId })
+        .eq('id', event.id)
+      event.google_event_id = googleEventId
+    } catch (e) {
+      console.error('[google calendar create error]', e)
+    }
+  }
+
   return NextResponse.json({ event })
 }
