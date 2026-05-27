@@ -679,6 +679,7 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
   const nowTop = isToday ? (now.getHours() - START_H + now.getMinutes() / 60) * ROW_H : -1
   const [hoverY,      setHoverY]      = useState<number | null>(null)
   const [hoverPlusBtn,setHoverPlusBtn] = useState(false)
+  const cellsRef = useRef<HTMLDivElement>(null)
 
   const SLOT_H = ROW_H / 4 // 15-min slot height
   const snapY  = hoverY !== null ? Math.floor(hoverY / SLOT_H) * SLOT_H : null
@@ -711,6 +712,7 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
           setHoverY(e.clientY - rect.top)
         }) : undefined}
         onMouseLeave={onDoubleClickCell ? () => setHoverY(null) : undefined}
+        ref={cellsRef}
         style={{ flex:1, position:'relative', background: wknd ? 'rgba(239,68,68,0.02)' : 'transparent' }}>
         {/* Hour lines */}
         {HOURS.map(h => (
@@ -739,19 +741,21 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
           </div>
         )}
         {/* Events */}
-        {events.map(ev => <EventBlock key={ev.id} event={ev} onClick={() => onEventClick(ev)} onResize={onResize} onMove={onMove} />)}
+        {events.map(ev => <EventBlock key={ev.id} event={ev} onClick={() => onEventClick(ev)} onResize={onResize} onMove={onMove} cellsRef={cellsRef} />)}
       </div>
     </div>
   )
 }
 
-function EventBlock({ event, onClick, onResize, onMove: onMoveEvent }: {
+function EventBlock({ event, onClick, onResize, onMove: onMoveEvent, cellsRef }: {
   event: CalendarEvent; onClick: () => void
   onResize?:  (id: string, start: string, end: string) => void
   onMove?:    (id: string, start: string, end: string) => void
+  cellsRef:   React.RefObject<HTMLDivElement | null>
 }) {
   const [liveTop,    setLiveTop]    = useState<number | null>(null)
   const [liveHeight, setLiveHeight] = useState<number | null>(null)
+  const [dragMode,   setDragMode]   = useState<'move'|'top'|'bottom'|null>(null)
   const didDrag  = useRef(false)
   const blockRef = useRef<HTMLDivElement>(null)
 
@@ -764,20 +768,24 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent }: {
   const top    = liveTop    ?? baseTop
   const height = liveHeight ?? baseHeight
   const color  = event.color || COLORS[0]
-  const dragging = liveTop !== null || liveHeight !== null
+  const isDragging = dragMode !== null
 
   const pxPer15 = ROW_H / 4
+  function snap(px: number) { return Math.round(px / pxPer15) * pxPer15 }
+  function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, v)) }
 
-  function snapPx(px: number) { return Math.round(px / pxPer15) * pxPer15 }
+  // Y relative to the time-cells container — works across columns since all share same top
+  function relY(clientY: number): number {
+    return clientY - (cellsRef.current?.getBoundingClientRect().top ?? 0)
+  }
 
   function pxToISO(px: number, date: string): string {
     const totalH = START_H + px / ROW_H
-    const h = Math.max(0, Math.min(23, Math.floor(totalH)))
-    const rawM = Math.round((totalH - Math.floor(totalH)) * 60)
+    const h = clamp(Math.floor(totalH), 0, 23)
+    const rawM = Math.round((totalH - h) * 60)
     const m = rawM >= 60 ? 0 : rawM
     const [yr, mo, dy] = date.split('-').map(Number)
-    const d = new Date(yr, mo - 1, dy, h, m)
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`
+    return `${yr}-${pad(mo)}-${pad(dy)}T${pad(h)}:${pad(m)}:00`
   }
 
   function dateAtPoint(x: number, y: number): string | null {
@@ -787,138 +795,148 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent }: {
     return null
   }
 
-  // ev.currentTarget (handle or body) → parent = outer wrapper → parent = time-cells container
-  function getContainer(target: EventTarget): HTMLElement | null {
-    return (target as HTMLElement).parentElement?.parentElement ?? null
+  function cleanup() {
+    window.removeEventListener('mousemove', onMove)
+    window.removeEventListener('mouseup',   onUp)
+    document.body.style.userSelect = ''
+    document.body.style.cursor     = ''
+    if (blockRef.current) blockRef.current.style.pointerEvents = ''
   }
 
-  const displayStart = dragging ? pxToTimeStr(top)          : fmtTime(event.start)
-  const displayEnd   = dragging ? pxToTimeStr(top + height) : (event.end ? fmtTime(event.end) : null)
+  // Placeholders — reassigned per-drag
+  let onMove: (me: MouseEvent) => void = () => {}
+  let onUp:   (me: MouseEvent) => void = () => {}
 
-  function startDrag(ev: React.MouseEvent, edge: 'top' | 'bottom') {
+  function startResize(ev: React.MouseEvent, edge: 'top' | 'bottom') {
     ev.stopPropagation(); ev.preventDefault()
     didDrag.current = false
-    const container = getContainer(ev.currentTarget)
-    if (!container) return
-
-    const origDate = dateStr(startDt)
+    setDragMode(edge)
     const maxPx    = (END_H - START_H) * ROW_H
     const endPosPx = baseTop + baseHeight
+    const origDate = dateStr(startDt)
 
-    const getY = (me: MouseEvent) => me.clientY - container.getBoundingClientRect().top
-
-    const mmove = (me: MouseEvent) => {
+    onMove = (me) => {
       didDrag.current = true
-      if (blockRef.current) blockRef.current.style.pointerEvents = 'none'
+      blockRef.current && (blockRef.current.style.pointerEvents = 'none')
+      const y = relY(me.clientY)
       if (edge === 'top') {
-        const sn = snapPx(Math.max(0, Math.min(endPosPx - pxPer15, getY(me))))
+        const sn = snap(clamp(y, 0, endPosPx - pxPer15))
         setLiveTop(sn); setLiveHeight(endPosPx - sn)
       } else {
-        const sn = snapPx(Math.max(baseTop + pxPer15, Math.min(maxPx, getY(me))))
+        const sn = snap(clamp(y, baseTop + pxPer15, maxPx))
         setLiveHeight(sn - baseTop)
       }
     }
-
-    const mup = (me: MouseEvent) => {
-      window.removeEventListener('mousemove', mmove)
-      window.removeEventListener('mouseup', mup)
-      document.body.style.userSelect = ''
-      document.body.style.cursor = ''
-      if (blockRef.current) blockRef.current.style.pointerEvents = ''
+    onUp = (me) => {
+      cleanup(); setDragMode(null)
       if (!didDrag.current) { setLiveTop(null); setLiveHeight(null); return }
-
+      const y = relY(me.clientY)
       if (edge === 'top') {
-        const sn = snapPx(Math.max(0, Math.min(endPosPx - pxPer15, getY(me))))
+        const sn = snap(clamp(y, 0, endPosPx - pxPer15))
         setLiveTop(null); setLiveHeight(null)
-        if (onResize) onResize(event.id, pxToISO(sn, origDate), event.end ?? pxToISO(endPosPx, origDate))
+        onResize?.(event.id, pxToISO(sn, origDate), event.end ?? pxToISO(endPosPx, origDate))
       } else {
-        const sn = snapPx(Math.max(baseTop + pxPer15, Math.min(maxPx, getY(me))))
+        const sn = snap(clamp(y, baseTop + pxPer15, maxPx))
         setLiveHeight(null)
-        if (onResize) onResize(event.id, event.start, pxToISO(sn, origDate))
+        onResize?.(event.id, event.start, pxToISO(sn, origDate))
       }
     }
-
     document.body.style.userSelect = 'none'
-    document.body.style.cursor = edge === 'bottom' ? 's-resize' : 'n-resize'
-    window.addEventListener('mousemove', mmove)
-    window.addEventListener('mouseup', mup)
+    document.body.style.cursor = edge === 'top' ? 'n-resize' : 's-resize'
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup',   onUp)
   }
 
   function startMove(ev: React.MouseEvent) {
     ev.stopPropagation(); ev.preventDefault()
     didDrag.current = false
-    const container = getContainer(ev.currentTarget)
-    if (!container) return
-
-    // offset of click inside the event (so the block doesn't jump on first move)
-    const grabOffset = ev.clientY - container.getBoundingClientRect().top - baseTop
+    setDragMode('move')
+    const grabOffset = relY(ev.clientY) - baseTop
     const maxTopPx   = (END_H - START_H) * ROW_H - baseHeight
     const targetDate = { current: dateStr(startDt) }
 
-    const mmove = (me: MouseEvent) => {
+    onMove = (me) => {
       didDrag.current = true
-      if (blockRef.current) blockRef.current.style.pointerEvents = 'none'
-      const rawY = me.clientY - container.getBoundingClientRect().top - grabOffset
-      const sn = snapPx(Math.max(0, Math.min(maxTopPx, rawY)))
+      blockRef.current && (blockRef.current.style.pointerEvents = 'none')
+      const sn = snap(clamp(relY(me.clientY) - grabOffset, 0, maxTopPx))
       setLiveTop(sn); setLiveHeight(baseHeight)
-      // pointer-events:none lets elementsFromPoint see through this block to the column below
       const nd = dateAtPoint(me.clientX, me.clientY)
       if (nd) targetDate.current = nd
     }
-
-    const mup = (me: MouseEvent) => {
-      window.removeEventListener('mousemove', mmove)
-      window.removeEventListener('mouseup', mup)
-      document.body.style.userSelect = ''
-      document.body.style.cursor = ''
-      if (blockRef.current) blockRef.current.style.pointerEvents = ''
+    onUp = (me) => {
+      cleanup(); setDragMode(null)
       if (!didDrag.current) { setLiveTop(null); setLiveHeight(null); return }
-
-      const rawY = me.clientY - container.getBoundingClientRect().top - grabOffset
-      const sn   = snapPx(Math.max(0, Math.min(maxTopPx, rawY)))
+      const sn   = snap(clamp(relY(me.clientY) - grabOffset, 0, maxTopPx))
       const date = targetDate.current
       setLiveTop(null); setLiveHeight(null)
-      if (onMoveEvent) onMoveEvent(event.id, pxToISO(sn, date), pxToISO(sn + baseHeight, date))
+      onMoveEvent?.(event.id, pxToISO(sn, date), pxToISO(sn + baseHeight, date))
     }
-
     document.body.style.userSelect = 'none'
     document.body.style.cursor = 'grabbing'
-    window.addEventListener('mousemove', mmove)
-    window.addEventListener('mouseup', mup)
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup',   onUp)
   }
+
+  const dispStart = pxToTimeStr(top)
+  const dispEnd   = pxToTimeStr(top + height)
 
   return (
     <div
       ref={blockRef}
       onClick={() => { if (!didDrag.current) onClick() }}
-      style={{ position:'absolute', left:'3px', right:'3px', top:`${top}px`, height:`${height}px`, zIndex: dragging ? 10 : 2, userSelect:'none' }}
+      style={{
+        position:'absolute', left:'3px', right:'3px',
+        top:`${top}px`, height:`${height}px`,
+        zIndex: isDragging ? 30 : 2, userSelect:'none',
+        transition: isDragging ? 'none' : 'top 0.05s, height 0.05s',
+      }}
     >
-      {/* Top resize handle */}
+      {/* Top resize zone */}
       {onResize && (
-        <div onMouseDown={e => startDrag(e, 'top')} style={{ position:'absolute', top:'-4px', left:0, right:0, height:'10px', cursor:'n-resize', zIndex:4, display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <div style={{ width:'28px', height:'3px', borderRadius:'2px', background:'rgba(255,255,255,0.75)' }} />
+        <div
+          onMouseDown={e => startResize(e, 'top')}
+          style={{ position:'absolute', top:0, left:0, right:0, height:'8px', cursor:'n-resize', zIndex:5, display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'8px 8px 0 0' }}
+        >
+          <div style={{ width:'32px', height:'4px', borderRadius:'2px', background:'rgba(255,255,255,0.85)', marginTop:'2px' }} />
         </div>
       )}
 
       {/* Event body */}
       <div
         onMouseDown={onMoveEvent ? startMove : undefined}
-        style={{ width:'100%', height:'100%', borderRadius:'7px', background: color, padding:'4px 6px', overflow:'hidden', boxShadow:`0 1px 6px ${color}55`, cursor: dragging ? 'grabbing' : (onMoveEvent ? 'grab' : 'pointer'), transition: dragging ? 'none' : 'filter 0.15s', display:'flex', flexDirection:'column', justifyContent:'flex-start' }}
+        style={{
+          width:'100%', height:'100%', borderRadius:'8px',
+          background: isDragging ? color : color,
+          padding:'4px 8px', overflow:'hidden',
+          boxShadow: isDragging
+            ? `0 8px 24px ${color}66, 0 2px 8px rgba(0,0,0,0.15)`
+            : `0 1px 4px ${color}44`,
+          cursor: dragMode === 'move' ? 'grabbing' : (onMoveEvent ? 'grab' : 'pointer'),
+          display:'flex', flexDirection:'column', justifyContent:'flex-start',
+          opacity: isDragging ? 0.92 : 1,
+          transform: dragMode === 'move' ? 'scale(1.025)' : 'scale(1)',
+          transition: isDragging ? 'none' : 'box-shadow 0.15s, transform 0.1s',
+          outline: isDragging ? `2px solid ${color}` : 'none',
+          outlineOffset: '1px',
+        }}
       >
         <p style={{ fontSize:'0.72rem', fontWeight:700, color:'white', margin:0, lineHeight:1.3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
           {event.title}
         </p>
-        {height > 20 && (
-          <p style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.9)', margin:'2px 0 0', fontWeight: dragging ? 700 : 400 }}>
-            {displayStart}{displayEnd ? ` – ${displayEnd}` : ''}
+        {height > 22 && (
+          <p style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.92)', margin:'2px 0 0', fontWeight: isDragging ? 700 : 400, whiteSpace:'nowrap' }}>
+            {isDragging ? `${dispStart} – ${dispEnd}` : (event.end ? `${fmtTime(event.start)} – ${fmtTime(event.end)}` : fmtTime(event.start))}
           </p>
         )}
       </div>
 
-      {/* Bottom resize handle */}
+      {/* Bottom resize zone */}
       {onResize && (
-        <div onMouseDown={e => startDrag(e, 'bottom')} style={{ position:'absolute', bottom:'-4px', left:0, right:0, height:'10px', cursor:'s-resize', zIndex:4, display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <div style={{ width:'28px', height:'3px', borderRadius:'2px', background:'rgba(255,255,255,0.75)' }} />
+        <div
+          onMouseDown={e => startResize(e, 'bottom')}
+          style={{ position:'absolute', bottom:0, left:0, right:0, height:'8px', cursor:'s-resize', zIndex:5, display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'0 0 8px 8px' }}
+        >
+          <div style={{ width:'32px', height:'4px', borderRadius:'2px', background:'rgba(255,255,255,0.85)', marginBottom:'2px' }} />
         </div>
       )}
     </div>
