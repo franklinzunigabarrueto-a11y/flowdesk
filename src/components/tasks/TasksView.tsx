@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import useSWR from 'swr'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
-import { Plus, CheckCircle, Circle, Clock, Flag, Trash2, X, Pencil, Check } from 'lucide-react'
+import { Plus, CheckCircle, Circle, Clock, CalendarDays, Flag, Trash2, X, Pencil, Check } from 'lucide-react'
 import { Task, TaskStatus, TaskPriority } from '@/types'
 import { formatDate } from '@/lib/utils'
 import DatePicker from '@/components/ui/DatePicker'
@@ -321,12 +321,15 @@ export default function TasksView() {
                       {task.description && (
                         <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>{task.description}</p>
                       )}
-                      <div style={{ display: 'flex', gap: '12px', marginTop: '8px', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: '12px', marginTop: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: PRIORITY_COLORS[task.priority], background: `${PRIORITY_COLORS[task.priority]}15`, padding: '2px 8px', borderRadius: '100px' }}>
                           <Flag size={10} /> {PRIORITY_LABELS[task.priority]}
                         </span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          <CalendarDays size={10} /> {formatDate(task.created_at)}
+                        </span>
                         {task.due_date && (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: 'var(--primary)', fontWeight: 500 }}>
                             <Clock size={10} /> {formatDate(task.due_date)}
                           </span>
                         )}
