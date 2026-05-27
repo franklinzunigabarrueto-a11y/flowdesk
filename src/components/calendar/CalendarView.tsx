@@ -200,6 +200,17 @@ export default function CalendarView() {
   }
 
   async function resizeEvent(id: string, newStart: string, newEnd: string) {
+    // Optimistic update: apply new times to local SWR cache immediately so the
+    // event doesn't snap back to its old position while we wait for the server.
+    mutate(
+      (current: any) => current ? {
+        ...current,
+        events: (current.events as CalendarEvent[]).map(e =>
+          e.id === id ? { ...e, start: newStart, end: newEnd } : e
+        ),
+      } : current,
+      false,
+    )
     await fetch(`/api/events/${id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ start_time: newStart, end_time: newEnd }),
@@ -777,9 +788,12 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent }: {
     const totalH = START_H + px / ROW_H
     const h = clamp(Math.floor(totalH), 0, 23)
     const rawM = Math.round((totalH - h) * 60)
-    const m = rawM >= 60 ? 0 : rawM
+    const m = clamp(rawM >= 60 ? 0 : rawM, 0, 59)
     const [yr, mo, dy] = date.split('-').map(Number)
-    return `${yr}-${pad(mo)}-${pad(dy)}T${pad(h)}:${pad(m)}:00`
+    // Use Date constructor (local time) + toISOString() so timezone is always correct.
+    // Avoids the bug where a bare "HH:MM" string sent to Postgres gets treated as UTC
+    // instead of local time, causing events to shift by the UTC offset on save.
+    return new Date(yr, mo - 1, dy, h, m, 0).toISOString()
   }
 
   function dateAtPoint(x: number, y: number): string | null {
@@ -827,11 +841,13 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent }: {
       if (edge === 'top') {
         const sn = snap(clamp(baseTop + delta, 0, endPosPx - pxPer15))
         setLiveTop(null); setLiveHeight(null)
-        onResize?.(event.id, pxToISO(sn, origDate), event.end ?? pxToISO(endPosPx, origDate))
+        // Always use pxToISO for both extremes — never pass raw event.start/end which
+        // may have a different timezone format causing a shift on the next read.
+        onResize?.(event.id, pxToISO(sn, origDate), pxToISO(endPosPx, origDate))
       } else {
         const sn = snap(clamp(endPosPx + delta, baseTop + pxPer15, maxPx))
         setLiveHeight(null)
-        onResize?.(event.id, event.start, pxToISO(sn, origDate))
+        onResize?.(event.id, pxToISO(baseTop, origDate), pxToISO(sn, origDate))
       }
     }
 
@@ -985,7 +1001,7 @@ function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onM
       <TimeGrid noAxisHeader>
         {days.map(d => (
           <DayColumn key={dateStr(d)} date={d} today={today}
-            events={events.filter(e => e.start.startsWith(dateStr(d)))}
+            events={events.filter(e => dateStr(new Date(e.start)) === dateStr(d))}
             onEventClick={onEventClick}
             onHeaderClick={() => onDayClick(d)}
             onResize={onResize}
