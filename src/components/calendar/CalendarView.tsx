@@ -82,6 +82,10 @@ function autoEndTime(start: string): string {
   return `${pad(Math.min(Math.floor(total / 60), 23))}:${pad(total % 60)}`
 }
 
+/* Module-level flag: true while an EventBlock drag is in progress.
+   DayColumn reads this to suppress the hover indicator during drag. */
+let isDragActive = false
+
 /* ─── Main component ─── */
 export default function CalendarView() {
   const today = new Date()
@@ -725,6 +729,7 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
       {/* Time cells */}
       <div
         onMouseMove={onDoubleClickCell ? (e => {
+          if (isDragActive) { setHoverY(null); return }
           const rect = e.currentTarget.getBoundingClientRect()
           setHoverY(e.clientY - rect.top)
         }) : undefined}
@@ -823,7 +828,7 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent }: {
     const origDate  = dateStr(startDt)
 
     function handleMove(me: MouseEvent) {
-      if (!didDrag.current) { didDrag.current = true; setDragMode(edge) }
+      if (!didDrag.current) { didDrag.current = true; isDragActive = true; setDragMode(edge) }
       if (blockRef.current) blockRef.current.style.pointerEvents = 'none'
       const delta = me.clientY - clientY0               // how far mouse moved (px)
       if (edge === 'top') {
@@ -842,6 +847,7 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent }: {
       document.body.style.userSelect = ''
       document.body.style.cursor     = ''
       if (blockRef.current) blockRef.current.style.pointerEvents = ''
+      isDragActive = false
       setDragMode(null)
       if (!didDrag.current) { setLiveTop(null); setLiveHeight(null); return }
       const delta = me.clientY - clientY0
@@ -882,7 +888,7 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent }: {
     const targetDate = { current: dateStr(startDt) }
 
     function handleMove(me: MouseEvent) {
-      if (!didDrag.current) { didDrag.current = true; setDragMode('move') }
+      if (!didDrag.current) { didDrag.current = true; isDragActive = true; setDragMode('move') }
       const delta = me.clientY - clientY0
       const sn    = snap(clamp(baseTop + delta, 0, maxTopPx))
       setLiveTop(sn); setLiveHeight(baseHeight)
@@ -896,6 +902,7 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent }: {
       window.removeEventListener('mouseup',   handleUp)
       document.body.style.userSelect = ''
       document.body.style.cursor     = ''
+      isDragActive = false
       setDragMode(null)
       setGhostFixed(null)
       if (!didDrag.current) { setLiveTop(null); setLiveHeight(null); return }
