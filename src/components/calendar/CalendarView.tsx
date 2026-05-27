@@ -741,17 +741,16 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
           </div>
         )}
         {/* Events */}
-        {events.map(ev => <EventBlock key={ev.id} event={ev} onClick={() => onEventClick(ev)} onResize={onResize} onMove={onMove} cellsRef={cellsRef} />)}
+        {events.map(ev => <EventBlock key={ev.id} event={ev} onClick={() => onEventClick(ev)} onResize={onResize} onMove={onMove} />)}
       </div>
     </div>
   )
 }
 
-function EventBlock({ event, onClick, onResize, onMove: onMoveEvent, cellsRef }: {
+function EventBlock({ event, onClick, onResize, onMove: onMoveEvent }: {
   event: CalendarEvent; onClick: () => void
-  onResize?:  (id: string, start: string, end: string) => void
-  onMove?:    (id: string, start: string, end: string) => void
-  cellsRef:   React.RefObject<HTMLDivElement | null>
+  onResize?: (id: string, start: string, end: string) => void
+  onMove?:   (id: string, start: string, end: string) => void
 }) {
   const [liveTop,    setLiveTop]    = useState<number | null>(null)
   const [liveHeight, setLiveHeight] = useState<number | null>(null)
@@ -773,7 +772,6 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent, cellsRef }:
   const pxPer15 = ROW_H / 4
   const snap  = (px: number) => Math.round(px / pxPer15) * pxPer15
   const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
-  const relY  = (clientY: number) => clientY - (cellsRef.current?.getBoundingClientRect().top ?? 0)
 
   function pxToISO(px: number, date: string): string {
     const totalH = START_H + px / ROW_H
@@ -791,25 +789,29 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent, cellsRef }:
     return null
   }
 
-  /* ── Resize ── */
+  /* ── Resize ──
+     Delta approach: capture viewport-Y at mousedown, compute delta on each move.
+     No getBoundingClientRect needed — immune to scroll during drag.           */
   function startResize(ev: React.MouseEvent, edge: 'top' | 'bottom') {
     ev.stopPropagation(); ev.preventDefault()
     didDrag.current = false
 
-    const maxPx    = (END_H - START_H) * ROW_H
-    const endPosPx = baseTop + baseHeight
-    const origDate = dateStr(startDt)
+    const clientY0  = ev.clientY                        // viewport-Y baseline
+    const maxPx     = (END_H - START_H) * ROW_H
+    const endPosPx  = baseTop + baseHeight              // grid-px position of event end
+    const origDate  = dateStr(startDt)
 
-    // Local closures — handleUp captures handleMove directly, removeEventListener always works
     function handleMove(me: MouseEvent) {
       if (!didDrag.current) { didDrag.current = true; setDragMode(edge) }
       if (blockRef.current) blockRef.current.style.pointerEvents = 'none'
-      const y = relY(me.clientY)
+      const delta = me.clientY - clientY0               // how far mouse moved (px)
       if (edge === 'top') {
-        const sn = snap(clamp(y, 0, endPosPx - pxPer15))
+        // top handle: move start, keep end fixed
+        const sn = snap(clamp(baseTop + delta, 0, endPosPx - pxPer15))
         setLiveTop(sn); setLiveHeight(endPosPx - sn)
       } else {
-        const sn = snap(clamp(y, baseTop + pxPer15, maxPx))
+        // bottom handle: keep start fixed, move end
+        const sn = snap(clamp(endPosPx + delta, baseTop + pxPer15, maxPx))
         setLiveHeight(sn - baseTop)
       }
     }
@@ -821,13 +823,13 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent, cellsRef }:
       if (blockRef.current) blockRef.current.style.pointerEvents = ''
       setDragMode(null)
       if (!didDrag.current) { setLiveTop(null); setLiveHeight(null); return }
-      const y = relY(me.clientY)
+      const delta = me.clientY - clientY0
       if (edge === 'top') {
-        const sn = snap(clamp(y, 0, endPosPx - pxPer15))
+        const sn = snap(clamp(baseTop + delta, 0, endPosPx - pxPer15))
         setLiveTop(null); setLiveHeight(null)
         onResize?.(event.id, pxToISO(sn, origDate), event.end ?? pxToISO(endPosPx, origDate))
       } else {
-        const sn = snap(clamp(y, baseTop + pxPer15, maxPx))
+        const sn = snap(clamp(endPosPx + delta, baseTop + pxPer15, maxPx))
         setLiveHeight(null)
         onResize?.(event.id, event.start, pxToISO(sn, origDate))
       }
@@ -839,19 +841,21 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent, cellsRef }:
     window.addEventListener('mouseup',   handleUp)
   }
 
-  /* ── Move ── */
+  /* ── Move ──
+     Same delta approach: preserve grab-offset so the grabbed point tracks the cursor. */
   function startMove(ev: React.MouseEvent) {
     ev.stopPropagation(); ev.preventDefault()
     didDrag.current = false
 
-    const grabOffset = relY(ev.clientY) - baseTop
+    const clientY0   = ev.clientY
     const maxTopPx   = (END_H - START_H) * ROW_H - baseHeight
     const targetDate = { current: dateStr(startDt) }
 
     function handleMove(me: MouseEvent) {
       if (!didDrag.current) { didDrag.current = true; setDragMode('move') }
       if (blockRef.current) blockRef.current.style.pointerEvents = 'none'
-      const sn = snap(clamp(relY(me.clientY) - grabOffset, 0, maxTopPx))
+      const delta = me.clientY - clientY0
+      const sn = snap(clamp(baseTop + delta, 0, maxTopPx))
       setLiveTop(sn); setLiveHeight(baseHeight)
       const nd = dateAtPoint(me.clientX, me.clientY)
       if (nd) targetDate.current = nd
@@ -864,8 +868,9 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent, cellsRef }:
       if (blockRef.current) blockRef.current.style.pointerEvents = ''
       setDragMode(null)
       if (!didDrag.current) { setLiveTop(null); setLiveHeight(null); return }
-      const sn   = snap(clamp(relY(me.clientY) - grabOffset, 0, maxTopPx))
-      const date = targetDate.current
+      const delta = me.clientY - clientY0
+      const sn    = snap(clamp(baseTop + delta, 0, maxTopPx))
+      const date  = targetDate.current
       setLiveTop(null); setLiveHeight(null)
       onMoveEvent?.(event.id, pxToISO(sn, date), pxToISO(sn + baseHeight, date))
     }
