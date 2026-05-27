@@ -250,6 +250,16 @@ export async function POST(request: Request) {
       console.error('[claim error]', claimError)
     }
 
+    // Check if this is the first completed message of the day (ignore current __processing__ placeholder)
+    const { count: todayCount } = await supabase
+      .from('diary_entries')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('entry_date', today)
+      .neq('whatsapp_message_id', messageId)
+      .neq('content', '__processing__')
+    const isFirstMessageToday = (todayCount ?? 0) === 0
+
     if (message.type === 'text') {
       textContent = message.text.body
 
@@ -349,7 +359,7 @@ export async function POST(request: Request) {
     // ── Flujo normal ──
     let intent
     try {
-      intent = await analyzeMessage(textContent, today, userTimezone, user.name || '', message.type === 'image')
+      intent = await analyzeMessage(textContent, today, userTimezone, user.name || '', message.type === 'image', isFirstMessageToday)
     } catch (aiError: any) {
       console.error('Gemini error:', aiError?.status, aiError?.message, JSON.stringify(aiError))
       const isRateLimit = aiError?.message?.includes('429') || aiError?.status === 429

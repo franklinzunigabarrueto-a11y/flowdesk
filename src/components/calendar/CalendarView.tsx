@@ -585,12 +585,12 @@ function MonthEventCard({ event, index, deletingId, onEdit, onDelete, onLightbox
 /* ─── Shared time grid ─── */
 const HOURS = Array.from({ length: END_H - START_H }, (_, i) => START_H + i)
 
-function TimeGrid({ children }: { children: React.ReactNode }) {
+function TimeGrid({ children, noAxisHeader }: { children: React.ReactNode; noAxisHeader?: boolean }) {
   return (
-    <div style={{ display:'flex', border:'1px solid var(--border)', borderRadius:'16px', overflow:'hidden', background:'var(--surface)' }}>
+    <div style={{ display:'flex', border:'1px solid var(--border)', borderTop: noAxisHeader ? 'none' : '1px solid var(--border)', borderRadius: noAxisHeader ? '0 0 16px 16px' : '16px', overflow:'hidden', background:'var(--surface)' }}>
       {/* Time axis */}
       <div style={{ width:'52px', flexShrink:0, borderRight:'1px solid var(--border)', background:'var(--surface)' }}>
-        <div style={{ height:'48px', borderBottom:'1px solid var(--border)' }} /> {/* header spacer */}
+        {!noAxisHeader && <div style={{ height:'48px', borderBottom:'1px solid var(--border)' }} />}
         {HOURS.map(h => (
           <div key={h} style={{ height:`${ROW_H}px`, display:'flex', alignItems:'flex-start', justifyContent:'center', paddingTop:'4px', fontSize:'0.65rem', color:'var(--text-muted)', borderBottom:'1px solid var(--border)', fontWeight:500 }}>
             {pad(h)}:00
@@ -605,13 +605,14 @@ function TimeGrid({ children }: { children: React.ReactNode }) {
   )
 }
 
-function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize, onMove, compact }: {
+function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize, onMove, compact, noHeader }: {
   date: Date; events: CalendarEvent[]; today: Date
   onEventClick: (ev: CalendarEvent) => void
   onHeaderClick?: () => void
   onResize?: (id: string, start: string, end: string) => void
   onMove?:   (id: string, start: string, end: string) => void
   compact?: boolean
+  noHeader?: boolean
 }) {
   const isToday = isSameDay(date, today)
   const wknd = isWeekend(date)
@@ -621,6 +622,7 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
   return (
     <div data-date={dateStr(date)} style={{ flex:1, minWidth: compact ? '80px' : '120px', display:'flex', flexDirection:'column', borderRight:'1px solid var(--border)' }}>
       {/* Day header */}
+      {!noHeader && (
       <div
         onClick={onHeaderClick}
         style={{ height:'48px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px', borderBottom:'1px solid var(--border)', background: wknd ? 'rgba(239,68,68,0.04)' : isToday ? 'rgba(249,115,22,0.06)' : 'var(--surface)', cursor: onHeaderClick ? 'pointer' : 'default', flexShrink:0 }}>
@@ -637,6 +639,7 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
           {date.getDate()}
         </span>
       </div>
+      )}
       {/* Time cells */}
       <div style={{ flex:1, position:'relative', background: wknd ? 'rgba(239,68,68,0.02)' : 'transparent' }}>
         {/* Hour lines */}
@@ -845,18 +848,43 @@ function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onM
   onMove:   (id: string, start: string, end: string) => void
 }) {
   return (
-    <TimeGrid>
-      {days.map(d => (
-        <DayColumn key={dateStr(d)} date={d} today={today}
-          events={events.filter(e => e.start.startsWith(dateStr(d)))}
-          onEventClick={onEventClick}
-          onHeaderClick={() => onDayClick(d)}
-          onResize={onResize}
-          onMove={onMove}
-          compact
-        />
-      ))}
-    </TimeGrid>
+    <>
+      {/* Sticky day header row */}
+      <div style={{ position:'sticky', top:0, zIndex:10, display:'flex', background:'var(--surface)', border:'1px solid var(--border)', borderBottom:'none', borderRadius:'16px 16px 0 0', flexShrink:0 }}>
+        <div style={{ width:'52px', flexShrink:0, borderRight:'1px solid var(--border)' }} />
+        <div style={{ flex:1, display:'flex', overflowX:'hidden' }}>
+          {days.map(d => {
+            const isToday = isSameDay(d, today)
+            const wknd    = isWeekend(d)
+            return (
+              <div key={dateStr(d)} onClick={() => onDayClick(d)}
+                style={{ flex:1, minWidth:'80px', height:'48px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px', borderRight:'1px solid var(--border)', cursor:'pointer', background: wknd ? 'rgba(239,68,68,0.04)' : isToday ? 'rgba(249,115,22,0.06)' : 'var(--surface)' }}>
+                <span style={{ fontSize:'0.65rem', fontWeight:600, color: wknd ? 'rgba(239,68,68,0.6)' : 'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+                  {DAY_SHORT[(d.getDay() + 6) % 7]}
+                </span>
+                <span style={{ fontSize:'1rem', fontWeight:700, width:'30px', height:'30px', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', background: isToday ? 'var(--primary)' : 'transparent', color: isToday ? 'white' : wknd ? 'rgba(239,68,68,0.75)' : 'var(--foreground)', boxShadow: isToday ? '0 0 12px var(--primary-glow)' : 'none' }}>
+                  {d.getDate()}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+      {/* Scrollable time grid (no headers) */}
+      <TimeGrid noAxisHeader>
+        {days.map(d => (
+          <DayColumn key={dateStr(d)} date={d} today={today}
+            events={events.filter(e => e.start.startsWith(dateStr(d)))}
+            onEventClick={onEventClick}
+            onHeaderClick={() => onDayClick(d)}
+            onResize={onResize}
+            onMove={onMove}
+            compact
+            noHeader
+          />
+        ))}
+      </TimeGrid>
+    </>
   )
 }
 
@@ -867,10 +895,26 @@ function DayView({ events, today, date, onEventClick, onResize, onMove }: {
   onResize: (id: string, start: string, end: string) => void
   onMove:   (id: string, start: string, end: string) => void
 }) {
+  const isToday = isSameDay(date, today)
+  const wknd    = isWeekend(date)
   return (
-    <TimeGrid>
-      <DayColumn date={date} today={today} events={events} onEventClick={onEventClick} onResize={onResize} onMove={onMove} />
-    </TimeGrid>
+    <>
+      {/* Sticky day header row */}
+      <div style={{ position:'sticky', top:0, zIndex:10, display:'flex', background:'var(--surface)', border:'1px solid var(--border)', borderBottom:'none', borderRadius:'16px 16px 0 0', flexShrink:0 }}>
+        <div style={{ width:'52px', flexShrink:0, borderRight:'1px solid var(--border)' }} />
+        <div style={{ flex:1, height:'48px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px', background: wknd ? 'rgba(239,68,68,0.04)' : isToday ? 'rgba(249,115,22,0.06)' : 'var(--surface)' }}>
+          <span style={{ fontSize:'0.65rem', fontWeight:600, color: wknd ? 'rgba(239,68,68,0.6)' : 'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+            {DAY_FULL[(date.getDay() + 6) % 7]}
+          </span>
+          <span style={{ fontSize:'1.2rem', fontWeight:700, width:'30px', height:'30px', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', background: isToday ? 'var(--primary)' : 'transparent', color: isToday ? 'white' : wknd ? 'rgba(239,68,68,0.75)' : 'var(--foreground)', boxShadow: isToday ? '0 0 12px var(--primary-glow)' : 'none' }}>
+            {date.getDate()}
+          </span>
+        </div>
+      </div>
+      <TimeGrid noAxisHeader>
+        <DayColumn date={date} today={today} events={events} onEventClick={onEventClick} onResize={onResize} onMove={onMove} noHeader />
+      </TimeGrid>
+    </>
   )
 }
 

@@ -108,7 +108,8 @@ export async function analyzeMessage(
   currentDate: string,
   timezone = 'America/Santiago',
   userName = '',
-  hasImage = false
+  hasImage = false,
+  isFirstMessageToday = true
 ): Promise<MessageIntent> {
   const utcOffset = getUtcOffset(timezone)
   const now = new Date()
@@ -116,13 +117,18 @@ export async function analyzeMessage(
   const timeOfDay = currentHour < 12 ? 'mañana' : currentHour < 19 ? 'tarde' : 'noche'
   const firstName = userName.split(' ')[0] || ''
 
+  const greetingInstruction = isFirstMessageToday
+    ? `PRIMER MENSAJE DEL DÍA: Si es un saludo o contexto de inicio, saluda según la hora (${currentHour < 12 ? 'Buenos días' : currentHour < 19 ? 'Buenas tardes' : 'Buenas noches'}), llama por nombre (${firstName || 'usuario'}), y añade UNA frase variada de faena. Si el mensaje ya incluye una acción concreta, confirma la acción brevemente y puedes incluir el saludo al inicio.`
+    : `NO es el primer mensaje del día. Responde DIRECTAMENTE sin saludar ni mencionar la faena. Ve al grano.`
+
   const prompt = `${SYSTEM_PROMPT}
 
 Fecha y hora actual: ${currentDate} ${now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: timezone })} (zona horaria: ${timezone}, UTC${utcOffset})
-Momento del día: ${timeOfDay} → saludo apropiado: ${currentHour < 12 ? 'Buenos días' : currentHour < 19 ? 'Buenas tardes' : 'Buenas noches'}
+Momento del día: ${timeOfDay}
 Nombre del usuario: ${firstName || 'usuario'}
 Usa hora LOCAL con offset en event_start/event_end. Ejemplo: "2026-05-28T14:00:00-04:00"
 ${!hasImage ? 'IMPORTANTE: Este mensaje llegó SIN imagen adjunta. Si el texto hace referencia a una foto, imagen o adjunto, usa el intent "needs_image".' : ''}
+${greetingInstruction}
 
 Mensaje del usuario: "${message}"
 
