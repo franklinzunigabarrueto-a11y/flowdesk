@@ -188,8 +188,11 @@ export default function CalendarView() {
     if (!newEv.title.trim() || !newEv.date || !newEv.time) return
     setSaving(true)
     try {
-      const start_time = `${newEv.date}T${newEv.time}:00`
-      const end_time   = newEv.endTime ? `${newEv.date}T${newEv.endTime}:00` : undefined
+      const [yr, mo, dy] = newEv.date.split('-').map(Number)
+      const [sh, sm] = newEv.time.split(':').map(Number)
+      const start_time = new Date(yr, mo - 1, dy, sh, sm, 0).toISOString()
+      const [eh, em] = (newEv.endTime || '').split(':').map(Number)
+      const end_time = newEv.endTime ? new Date(yr, mo - 1, dy, eh, em, 0).toISOString() : undefined
       await fetch('/api/events', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: newEv.title, description: newEv.description, start_time, end_time, image_url: createImg }),
@@ -254,8 +257,11 @@ export default function CalendarView() {
     if (!popupEvent || !editDraft.title.trim() || !editDraft.date || !editDraft.time) return
     setEditSaving(true)
     try {
-      const start_time = `${editDraft.date}T${editDraft.time}:00`
-      const end_time   = editDraft.endTime ? `${editDraft.date}T${editDraft.endTime}:00` : undefined
+      const [yr, mo, dy] = editDraft.date.split('-').map(Number)
+      const [sh, sm] = editDraft.time.split(':').map(Number)
+      const start_time = new Date(yr, mo - 1, dy, sh, sm, 0).toISOString()
+      const [eh, em] = (editDraft.endTime || '').split(':').map(Number)
+      const end_time = editDraft.endTime ? new Date(yr, mo - 1, dy, eh, em, 0).toISOString() : undefined
       await fetch(`/api/events/${popupEvent.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: editDraft.title, start_time, end_time, description: editDraft.description, image_url: editImg }),
