@@ -26,7 +26,7 @@ const PRIORITY_DOT: Record<string, string> = {
 }
 
 export default function DiaryView() {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toLocaleDateString('en-CA'))
   const [searchQuery, setSearchQuery] = useState('')
   const [committedQuery, setCommittedQuery] = useState('')
 
@@ -45,9 +45,10 @@ export default function DiaryView() {
   const aiError: boolean = summaryData?.aiError ?? false
 
   function changeDay(delta: number) {
-    const d = new Date(selectedDate)
-    d.setDate(d.getDate() + delta)
-    setSelectedDate(d.toISOString().split('T')[0])
+    const [y, m, d] = selectedDate.split('-').map(Number)
+    const date = new Date(y, m - 1, d)
+    date.setDate(date.getDate() + delta)
+    setSelectedDate(date.toLocaleDateString('en-CA'))
   }
 
   const isSelectedToday = isToday(new Date(selectedDate + 'T12:00:00'))
@@ -100,7 +101,7 @@ export default function DiaryView() {
         <input
           type="date"
           value={selectedDate}
-          max={new Date().toISOString().split('T')[0]}
+          max={new Date().toLocaleDateString('en-CA')}
           onChange={e => setSelectedDate(e.target.value)}
           style={{
             padding: '8px 12px', borderRadius: '10px',
