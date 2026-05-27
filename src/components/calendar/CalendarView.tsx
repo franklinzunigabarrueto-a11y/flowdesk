@@ -771,13 +771,9 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent, cellsRef }:
   const isDragging = dragMode !== null
 
   const pxPer15 = ROW_H / 4
-  function snap(px: number) { return Math.round(px / pxPer15) * pxPer15 }
-  function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, v)) }
-
-  // Y relative to the time-cells container — works across columns since all share same top
-  function relY(clientY: number): number {
-    return clientY - (cellsRef.current?.getBoundingClientRect().top ?? 0)
-  }
+  const snap  = (px: number) => Math.round(px / pxPer15) * pxPer15
+  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
+  const relY  = (clientY: number) => clientY - (cellsRef.current?.getBoundingClientRect().top ?? 0)
 
   function pxToISO(px: number, date: string): string {
     const totalH = START_H + px / ROW_H
@@ -795,29 +791,19 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent, cellsRef }:
     return null
   }
 
-  function cleanup() {
-    window.removeEventListener('mousemove', onMove)
-    window.removeEventListener('mouseup',   onUp)
-    document.body.style.userSelect = ''
-    document.body.style.cursor     = ''
-    if (blockRef.current) blockRef.current.style.pointerEvents = ''
-  }
-
-  // Placeholders — reassigned per-drag
-  let onMove: (me: MouseEvent) => void = () => {}
-  let onUp:   (me: MouseEvent) => void = () => {}
-
+  /* ── Resize ── */
   function startResize(ev: React.MouseEvent, edge: 'top' | 'bottom') {
     ev.stopPropagation(); ev.preventDefault()
     didDrag.current = false
-    setDragMode(edge)
+
     const maxPx    = (END_H - START_H) * ROW_H
     const endPosPx = baseTop + baseHeight
     const origDate = dateStr(startDt)
 
-    onMove = (me) => {
-      didDrag.current = true
-      blockRef.current && (blockRef.current.style.pointerEvents = 'none')
+    // Local closures — handleUp captures handleMove directly, removeEventListener always works
+    function handleMove(me: MouseEvent) {
+      if (!didDrag.current) { didDrag.current = true; setDragMode(edge) }
+      if (blockRef.current) blockRef.current.style.pointerEvents = 'none'
       const y = relY(me.clientY)
       if (edge === 'top') {
         const sn = snap(clamp(y, 0, endPosPx - pxPer15))
@@ -827,8 +813,13 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent, cellsRef }:
         setLiveHeight(sn - baseTop)
       }
     }
-    onUp = (me) => {
-      cleanup(); setDragMode(null)
+    function handleUp(me: MouseEvent) {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup',   handleUp)
+      document.body.style.userSelect = ''
+      document.body.style.cursor     = ''
+      if (blockRef.current) blockRef.current.style.pointerEvents = ''
+      setDragMode(null)
       if (!didDrag.current) { setLiveTop(null); setLiveHeight(null); return }
       const y = relY(me.clientY)
       if (edge === 'top') {
@@ -841,42 +832,51 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent, cellsRef }:
         onResize?.(event.id, event.start, pxToISO(sn, origDate))
       }
     }
+
     document.body.style.userSelect = 'none'
     document.body.style.cursor = edge === 'top' ? 'n-resize' : 's-resize'
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup',   onUp)
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup',   handleUp)
   }
 
+  /* ── Move ── */
   function startMove(ev: React.MouseEvent) {
     ev.stopPropagation(); ev.preventDefault()
     didDrag.current = false
-    setDragMode('move')
+
     const grabOffset = relY(ev.clientY) - baseTop
     const maxTopPx   = (END_H - START_H) * ROW_H - baseHeight
     const targetDate = { current: dateStr(startDt) }
 
-    onMove = (me) => {
-      didDrag.current = true
-      blockRef.current && (blockRef.current.style.pointerEvents = 'none')
+    function handleMove(me: MouseEvent) {
+      if (!didDrag.current) { didDrag.current = true; setDragMode('move') }
+      if (blockRef.current) blockRef.current.style.pointerEvents = 'none'
       const sn = snap(clamp(relY(me.clientY) - grabOffset, 0, maxTopPx))
       setLiveTop(sn); setLiveHeight(baseHeight)
       const nd = dateAtPoint(me.clientX, me.clientY)
       if (nd) targetDate.current = nd
     }
-    onUp = (me) => {
-      cleanup(); setDragMode(null)
+    function handleUp(me: MouseEvent) {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup',   handleUp)
+      document.body.style.userSelect = ''
+      document.body.style.cursor     = ''
+      if (blockRef.current) blockRef.current.style.pointerEvents = ''
+      setDragMode(null)
       if (!didDrag.current) { setLiveTop(null); setLiveHeight(null); return }
       const sn   = snap(clamp(relY(me.clientY) - grabOffset, 0, maxTopPx))
       const date = targetDate.current
       setLiveTop(null); setLiveHeight(null)
       onMoveEvent?.(event.id, pxToISO(sn, date), pxToISO(sn + baseHeight, date))
     }
+
     document.body.style.userSelect = 'none'
     document.body.style.cursor = 'grabbing'
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup',   onUp)
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup',   handleUp)
   }
 
+  const HANDLE_H = 10 // px — resize handle height
   const dispStart = pxToTimeStr(top)
   const dispEnd   = pxToTimeStr(top + height)
 
@@ -888,55 +888,57 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent, cellsRef }:
         position:'absolute', left:'3px', right:'3px',
         top:`${top}px`, height:`${height}px`,
         zIndex: isDragging ? 30 : 2, userSelect:'none',
-        transition: isDragging ? 'none' : 'top 0.05s, height 0.05s',
+        transition: isDragging ? 'none' : 'top 0.06s, height 0.06s',
       }}
     >
-      {/* Top resize zone */}
-      {onResize && (
-        <div
-          onMouseDown={e => startResize(e, 'top')}
-          style={{ position:'absolute', top:0, left:0, right:0, height:'8px', cursor:'n-resize', zIndex:5, display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'8px 8px 0 0' }}
-        >
-          <div style={{ width:'32px', height:'4px', borderRadius:'2px', background:'rgba(255,255,255,0.85)', marginTop:'2px' }} />
-        </div>
-      )}
-
-      {/* Event body */}
+      {/* Event body — padded so it never covers the resize handles */}
       <div
         onMouseDown={onMoveEvent ? startMove : undefined}
         style={{
-          width:'100%', height:'100%', borderRadius:'8px',
-          background: isDragging ? color : color,
-          padding:'4px 8px', overflow:'hidden',
+          position:'absolute',
+          top: onResize ? `${HANDLE_H}px` : 0,
+          bottom: onResize ? `${HANDLE_H}px` : 0,
+          left:0, right:0,
+          borderRadius:'8px',
+          background: color,
+          padding:'3px 8px', overflow:'hidden',
           boxShadow: isDragging
-            ? `0 8px 24px ${color}66, 0 2px 8px rgba(0,0,0,0.15)`
+            ? `0 8px 24px ${color}66, 0 2px 8px rgba(0,0,0,0.18)`
             : `0 1px 4px ${color}44`,
           cursor: dragMode === 'move' ? 'grabbing' : (onMoveEvent ? 'grab' : 'pointer'),
           display:'flex', flexDirection:'column', justifyContent:'flex-start',
-          opacity: isDragging ? 0.92 : 1,
-          transform: dragMode === 'move' ? 'scale(1.025)' : 'scale(1)',
+          opacity: isDragging ? 0.93 : 1,
+          transform: dragMode === 'move' ? 'scale(1.02)' : 'scale(1)',
           transition: isDragging ? 'none' : 'box-shadow 0.15s, transform 0.1s',
-          outline: isDragging ? `2px solid ${color}` : 'none',
-          outlineOffset: '1px',
         }}
       >
         <p style={{ fontSize:'0.72rem', fontWeight:700, color:'white', margin:0, lineHeight:1.3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
           {event.title}
         </p>
-        {height > 22 && (
-          <p style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.92)', margin:'2px 0 0', fontWeight: isDragging ? 700 : 400, whiteSpace:'nowrap' }}>
+        {(height - HANDLE_H * 2) > 16 && (
+          <p style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.92)', margin:'1px 0 0', fontWeight: isDragging ? 700 : 400, whiteSpace:'nowrap' }}>
             {isDragging ? `${dispStart} – ${dispEnd}` : (event.end ? `${fmtTime(event.start)} – ${fmtTime(event.end)}` : fmtTime(event.start))}
           </p>
         )}
       </div>
 
-      {/* Bottom resize zone */}
+      {/* Top resize handle — sits above the body, never overlaps */}
+      {onResize && (
+        <div
+          onMouseDown={e => startResize(e, 'top')}
+          style={{ position:'absolute', top:0, left:0, right:0, height:`${HANDLE_H}px`, cursor:'n-resize', zIndex:6, display:'flex', alignItems:'center', justifyContent:'center' }}
+        >
+          <div style={{ width:'36px', height:'4px', borderRadius:'2px', background:'rgba(255,255,255,0.9)' }} />
+        </div>
+      )}
+
+      {/* Bottom resize handle */}
       {onResize && (
         <div
           onMouseDown={e => startResize(e, 'bottom')}
-          style={{ position:'absolute', bottom:0, left:0, right:0, height:'8px', cursor:'s-resize', zIndex:5, display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'0 0 8px 8px' }}
+          style={{ position:'absolute', bottom:0, left:0, right:0, height:`${HANDLE_H}px`, cursor:'s-resize', zIndex:6, display:'flex', alignItems:'center', justifyContent:'center' }}
         >
-          <div style={{ width:'32px', height:'4px', borderRadius:'2px', background:'rgba(255,255,255,0.85)', marginBottom:'2px' }} />
+          <div style={{ width:'36px', height:'4px', borderRadius:'2px', background:'rgba(255,255,255,0.9)' }} />
         </div>
       )}
     </div>
