@@ -677,7 +677,8 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
   const wknd = isWeekend(date)
   const now = new Date()
   const nowTop = isToday ? (now.getHours() - START_H + now.getMinutes() / 60) * ROW_H : -1
-  const [hoverY, setHoverY] = useState<number | null>(null)
+  const [hoverY,      setHoverY]      = useState<number | null>(null)
+  const [hoverPlusBtn,setHoverPlusBtn] = useState(false)
 
   const SLOT_H = ROW_H / 4 // 15-min slot height
   const snapY  = hoverY !== null ? Math.floor(hoverY / SLOT_H) * SLOT_H : null
@@ -719,10 +720,11 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
         {snapY !== null && (
           <div style={{ position:'absolute', left:0, right:0, top:`${snapY}px`, height:`${SLOT_H}px`, background:'rgba(249,115,22,0.08)', zIndex:1, pointerEvents:'none', display:'flex', alignItems:'center', paddingLeft:'4px', gap:'4px' }}>
             <button
-              onMouseEnter={() => {}} // keeps hover alive while over button
+              onMouseEnter={() => setHoverPlusBtn(true)}
+              onMouseLeave={() => setHoverPlusBtn(false)}
               onClick={() => onDoubleClickCell!(dateStr(date), pxToTimeStr(snapY!))}
-              style={{ pointerEvents:'auto', width:'16px', height:'16px', borderRadius:'50%', background:'var(--primary)', border:'none', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, cursor:'pointer', boxShadow:'0 0 6px var(--primary-glow)', padding:0 }}>
-              <span style={{ color:'white', fontSize:'11px', fontWeight:700, lineHeight:1 }}>+</span>
+              style={{ pointerEvents:'auto', width:'22px', height:'22px', borderRadius:'50%', background: hoverPlusBtn ? '#fb923c' : 'var(--primary)', border:'none', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, cursor:'pointer', boxShadow: hoverPlusBtn ? '0 0 10px rgba(249,115,22,0.6)' : '0 0 6px var(--primary-glow)', padding:0, transition:'background 0.15s, box-shadow 0.15s, transform 0.1s', transform: hoverPlusBtn ? 'scale(1.15)' : 'scale(1)' }}>
+              <span style={{ color:'white', fontSize:'13px', fontWeight:700, lineHeight:1 }}>+</span>
             </button>
             <span style={{ fontSize:'0.65rem', fontWeight:600, color:'var(--primary)' }}>
               {pxToTimeStr(snapY)}
