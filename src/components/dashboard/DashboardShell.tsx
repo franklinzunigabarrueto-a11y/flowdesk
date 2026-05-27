@@ -41,6 +41,8 @@ export default function DashboardShell({ user, children }: Props) {
   // The route skips the call if the existing channel is still valid.
   useEffect(() => {
     fetch('/api/events/google-sync/register', { method: 'POST' }).catch(() => {})
+    // Create FlowDesk👷 calendar if it doesn't exist yet (idempotent)
+    fetch('/api/setup/calendar', { method: 'POST' }).catch(() => {})
   }, [])
 
   useEffect(() => {

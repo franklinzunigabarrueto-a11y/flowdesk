@@ -73,11 +73,18 @@ export async function POST(request: Request) {
   // Sync to Google Calendar
   const { data: profile } = await adminDb
     .from('users')
-    .select('google_access_token, google_refresh_token, flowdesk_calendar_id')
+    .select('google_access_token, google_refresh_token')
     .eq('id', user.id)
     .single()
 
   if (profile?.google_access_token && event) {
+    // flowdesk_calendar_id is optional — falls back to primary if column not yet migrated
+    let calendarId = 'primary'
+    try {
+      const { data: cal } = await adminDb.from('users').select('flowdesk_calendar_id').eq('id', user.id).single()
+      if (cal?.flowdesk_calendar_id) calendarId = cal.flowdesk_calendar_id
+    } catch {}
+
     try {
       const { googleEventId } = await createCalendarEvent({
         accessToken:  profile.google_access_token,
@@ -88,7 +95,7 @@ export async function POST(request: Request) {
         description: event.description,
         startTime:   event.start_time,
         endTime:     event.end_time,
-        calendarId:  profile.flowdesk_calendar_id || 'primary',
+        calendarId,
       })
       await adminDb
         .from('calendar_events')

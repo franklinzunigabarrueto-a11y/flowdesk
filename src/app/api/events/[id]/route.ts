@@ -49,11 +49,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (event.google_event_id) {
     const { data: profile } = await adminDb
       .from('users')
-      .select('google_access_token, google_refresh_token, flowdesk_calendar_id')
+      .select('google_access_token, google_refresh_token')
       .eq('id', user.id)
       .single()
 
     if (profile?.google_access_token) {
+      let calendarId = 'primary'
+      try {
+        const { data: cal } = await adminDb.from('users').select('flowdesk_calendar_id').eq('id', user.id).single()
+        if (cal?.flowdesk_calendar_id) calendarId = cal.flowdesk_calendar_id
+      } catch {}
+
       try {
         await updateCalendarEvent({
           accessToken:    profile.google_access_token,
@@ -61,7 +67,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           userId:         user.id,
           adminDb,
           googleEventId:  event.google_event_id,
-          calendarId:     profile.flowdesk_calendar_id || 'primary',
+          calendarId,
           title:          body.title,
           description:    body.description,
           startTime:      body.start_time,
@@ -96,11 +102,17 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   if (event.google_event_id) {
     const { data: profile } = await adminDb
       .from('users')
-      .select('google_access_token, google_refresh_token, flowdesk_calendar_id')
+      .select('google_access_token, google_refresh_token')
       .eq('id', user.id)
       .single()
 
     if (profile?.google_access_token) {
+      let calendarId = 'primary'
+      try {
+        const { data: cal } = await adminDb.from('users').select('flowdesk_calendar_id').eq('id', user.id).single()
+        if (cal?.flowdesk_calendar_id) calendarId = cal.flowdesk_calendar_id
+      } catch {}
+
       try {
         await deleteCalendarEvent({
           accessToken:   profile.google_access_token,
@@ -108,7 +120,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
           userId:        user.id,
           adminDb,
           googleEventId: event.google_event_id,
-          calendarId:    profile.flowdesk_calendar_id || 'primary',
+          calendarId,
         })
       } catch (e) {
         console.error('[google calendar delete error]', e)
