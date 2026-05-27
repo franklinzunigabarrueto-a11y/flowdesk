@@ -27,7 +27,7 @@ export async function POST(request: Request) {
 
   const { data: user } = await adminDb
     .from('users')
-    .select('id, google_access_token, google_refresh_token, google_sync_token')
+    .select('id, google_access_token, google_refresh_token, google_sync_token, flowdesk_calendar_id')
     .eq('google_channel_id', channelId)
     .single()
 
@@ -37,11 +37,12 @@ export async function POST(request: Request) {
 
   try {
     const { items, newSyncToken } = await fetchChangedEvents({
-      userId:       user.id,
-      accessToken:  user.google_access_token,
-      refreshToken: user.google_refresh_token,
+      userId:              user.id,
+      accessToken:         user.google_access_token,
+      refreshToken:        user.google_refresh_token,
       adminDb,
-      syncToken:    user.google_sync_token,
+      syncToken:           user.google_sync_token,
+      flowdeskCalendarId:  user.flowdesk_calendar_id,
     })
 
     for (const gEvent of items) {
@@ -101,10 +102,11 @@ export async function POST(request: Request) {
       // syncToken is stale — re-register to get a fresh one
       try {
         await registerWatch({
-          userId:       user.id,
-          accessToken:  user.google_access_token,
-          refreshToken: user.google_refresh_token,
+          userId:              user.id,
+          accessToken:         user.google_access_token,
+          refreshToken:        user.google_refresh_token,
           adminDb,
+          flowdeskCalendarId:  user.flowdesk_calendar_id,
         })
       } catch {}
     }

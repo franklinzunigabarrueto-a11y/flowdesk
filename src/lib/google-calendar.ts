@@ -52,6 +52,44 @@ export async function findCalendarByName(params: {
   return match?.id || 'primary'
 }
 
+/**
+ * Creates the "FlowDesk👷" calendar in Google Calendar with Tangerine (Mandarina) color.
+ * If it already exists, reuses it. Saves the calendarId in the users table.
+ */
+export async function createFlowDeskCalendar(params: {
+  accessToken: string
+  refreshToken?: string | null
+  userId: string
+  adminDb: SupabaseClient
+}): Promise<string> {
+  const auth = getGoogleClient(params.accessToken, params.refreshToken, params.userId, params.adminDb)
+  const cal = google.calendar({ version: 'v3', auth })
+
+  // Reuse if already exists
+  const listRes = await cal.calendarList.list()
+  const existing = (listRes.data.items || []).find(c => c.summary === 'FlowDesk👷')
+  if (existing?.id) {
+    await params.adminDb.from('users').update({ flowdesk_calendar_id: existing.id }).eq('id', params.userId)
+    return existing.id
+  }
+
+  // Create new calendar
+  const createRes = await cal.calendars.insert({
+    requestBody: { summary: 'FlowDesk👷', timeZone: TZ },
+  })
+  const calId = createRes.data.id!
+
+  // Set Tangerine / Mandarina color (#F4511E)
+  await cal.calendarList.patch({
+    calendarId: calId,
+    colorRgbFormat: true,
+    requestBody: { backgroundColor: '#F4511E', foregroundColor: '#ffffff' },
+  })
+
+  await params.adminDb.from('users').update({ flowdesk_calendar_id: calId }).eq('id', params.userId)
+  return calId
+}
+
 export async function createCalendarEvent(params: {
   accessToken: string
   refreshToken?: string | null
@@ -87,6 +125,7 @@ export async function updateCalendarEvent(params: {
   accessToken: string
   refreshToken?: string | null
   googleEventId: string
+  calendarId?: string
   title?: string
   description?: string
   startTime?: string
@@ -97,8 +136,9 @@ export async function updateCalendarEvent(params: {
 }): Promise<void> {
   const auth = getGoogleClient(params.accessToken, params.refreshToken, params.userId, params.adminDb)
   const cal = google.calendar({ version: 'v3', auth })
+  const calId = params.calendarId || 'primary'
 
-  const existing = await cal.events.get({ calendarId: 'primary', eventId: params.googleEventId })
+  const existing = await cal.events.get({ calendarId: calId, eventId: params.googleEventId })
   const tz = params.timezone || TZ
   const patch: any = {}
 
@@ -122,19 +162,20 @@ export async function updateCalendarEvent(params: {
     patch.end = { dateTime: new Date(params.endTime).toISOString(), timeZone: tz }
   }
 
-  await cal.events.patch({ calendarId: 'primary', eventId: params.googleEventId, requestBody: patch })
+  await cal.events.patch({ calendarId: calId, eventId: params.googleEventId, requestBody: patch })
 }
 
 export async function deleteCalendarEvent(params: {
   accessToken: string
   refreshToken?: string | null
   googleEventId: string
+  calendarId?: string
   userId?: string
   adminDb?: SupabaseClient
 }): Promise<void> {
   const auth = getGoogleClient(params.accessToken, params.refreshToken, params.userId, params.adminDb)
   const cal = google.calendar({ version: 'v3', auth })
-  await cal.events.delete({ calendarId: 'primary', eventId: params.googleEventId })
+  await cal.events.delete({ calendarId: params.calendarId || 'primary', eventId: params.googleEventId })
 }
 
 export async function listCalendarEvents(params: {
@@ -169,14 +210,16 @@ export async function registerWatch(params: {
   accessToken: string
   refreshToken?: string | null
   adminDb: SupabaseClient
+  flowdeskCalendarId?: string | null
 }): Promise<void> {
   const auth = getGoogleClient(params.accessToken, params.refreshToken, params.userId, params.adminDb)
   const cal = google.calendar({ version: 'v3', auth })
 
+  const calId = params.flowdeskCalendarId || 'primary'
   const channelId = `fd-${params.userId.replace(/-/g, '').slice(0, 20)}-${Date.now()}`
 
   const watch = await cal.events.watch({
-    calendarId: 'primary',
+    calendarId: calId,
     requestBody: {
       id: channelId,
       type: 'web_hook',
@@ -188,7 +231,7 @@ export async function registerWatch(params: {
   let syncToken = ''
   let pageToken: string | undefined
   do {
-    const resp = await cal.events.list({ calendarId: 'primary', maxResults: 2500, pageToken })
+    const resp = await cal.events.list({ calendarId: calId, maxResults: 2500, pageToken })
     pageToken = resp.data.nextPageToken ?? undefined
     if (!pageToken) syncToken = resp.data.nextSyncToken ?? ''
   } while (pageToken)
@@ -211,9 +254,11 @@ export async function fetchChangedEvents(params: {
   refreshToken?: string | null
   adminDb: SupabaseClient
   syncToken: string
+  flowdeskCalendarId?: string | null
 }): Promise<{ items: any[]; newSyncToken: string }> {
   const auth = getGoogleClient(params.accessToken, params.refreshToken, params.userId, params.adminDb)
   const cal = google.calendar({ version: 'v3', auth })
+  const calId = params.flowdeskCalendarId || 'primary'
 
   const items: any[] = []
   let pageToken: string | undefined
@@ -222,7 +267,7 @@ export async function fetchChangedEvents(params: {
   try {
     do {
       const resp = await cal.events.list({
-        calendarId: 'primary',
+        calendarId: calId,
         syncToken: params.syncToken,
         pageToken,
         maxResults: 2500,

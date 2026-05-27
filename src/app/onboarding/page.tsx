@@ -43,6 +43,9 @@ export default function OnboardingPage() {
         onboarding_completed: true,
       })
 
+      // Crear calendario FlowDesk👷 en Google Calendar (Mandarina)
+      fetch('/api/setup/calendar', { method: 'POST' }).catch(() => {})
+
       await fetch('/api/whatsapp/welcome', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -115,14 +115,7 @@ async function processItem(
 
       if (user.google_access_token) {
         try {
-          let calendarId = 'primary'
-          if (item.data.calendar_name) {
-            calendarId = await findCalendarByName({
-              accessToken: user.google_access_token,
-              refreshToken: user.google_refresh_token,
-              name: item.data.calendar_name,
-            })
-          }
+          const calendarId = user.flowdesk_calendar_id || 'primary'
           const gcalEvent = await createCalendarEvent({
             accessToken: user.google_access_token,
             refreshToken: user.google_refresh_token,
@@ -178,6 +171,7 @@ async function processItem(
             accessToken: user.google_access_token,
             refreshToken: user.google_refresh_token,
             googleEventId: lastEvent.google_event_id,
+            calendarId: user.flowdesk_calendar_id || 'primary',
             title: item.data.title,
             startTime: item.data.event_start,
             endTime: item.data.event_end,

@@ -73,7 +73,7 @@ export async function POST(request: Request) {
   // Sync to Google Calendar
   const { data: profile } = await adminDb
     .from('users')
-    .select('google_access_token, google_refresh_token')
+    .select('google_access_token, google_refresh_token, flowdesk_calendar_id')
     .eq('id', user.id)
     .single()
 
@@ -88,6 +88,7 @@ export async function POST(request: Request) {
         description: event.description,
         startTime:   event.start_time,
         endTime:     event.end_time,
+        calendarId:  profile.flowdesk_calendar_id || 'primary',
       })
       await adminDb
         .from('calendar_events')

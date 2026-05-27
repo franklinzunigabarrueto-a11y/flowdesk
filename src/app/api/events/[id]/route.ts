@@ -49,7 +49,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (event.google_event_id) {
     const { data: profile } = await adminDb
       .from('users')
-      .select('google_access_token, google_refresh_token')
+      .select('google_access_token, google_refresh_token, flowdesk_calendar_id')
       .eq('id', user.id)
       .single()
 
@@ -61,6 +61,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           userId:         user.id,
           adminDb,
           googleEventId:  event.google_event_id,
+          calendarId:     profile.flowdesk_calendar_id || 'primary',
           title:          body.title,
           description:    body.description,
           startTime:      body.start_time,
@@ -95,7 +96,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   if (event.google_event_id) {
     const { data: profile } = await adminDb
       .from('users')
-      .select('google_access_token, google_refresh_token')
+      .select('google_access_token, google_refresh_token, flowdesk_calendar_id')
       .eq('id', user.id)
       .single()
 
@@ -107,6 +108,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
           userId:        user.id,
           adminDb,
           googleEventId: event.google_event_id,
+          calendarId:    profile.flowdesk_calendar_id || 'primary',
         })
       } catch (e) {
         console.error('[google calendar delete error]', e)

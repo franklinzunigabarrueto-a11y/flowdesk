@@ -23,7 +23,7 @@ export async function POST() {
   const adminDb = getAdminDb()
   const { data: profile } = await adminDb
     .from('users')
-    .select('google_access_token, google_refresh_token, google_channel_expiry')
+    .select('google_access_token, google_refresh_token, google_channel_expiry, flowdesk_calendar_id')
     .eq('id', user.id)
     .single()
 
@@ -39,10 +39,11 @@ export async function POST() {
 
   try {
     await registerWatch({
-      userId:       user.id,
-      accessToken:  profile.google_access_token,
-      refreshToken: profile.google_refresh_token,
+      userId:                user.id,
+      accessToken:           profile.google_access_token,
+      refreshToken:          profile.google_refresh_token,
       adminDb,
+      flowdeskCalendarId:    profile.flowdesk_calendar_id,
     })
     return NextResponse.json({ ok: true, registered: true })
   } catch (e: any) {
