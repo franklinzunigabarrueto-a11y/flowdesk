@@ -5,7 +5,7 @@ import useSWR from 'swr'
 import {
   BookOpen, Mic, Search, ChevronLeft, ChevronRight,
   ImageIcon, Sparkles, CalendarCheck, Mail, AlertTriangle,
-  ShieldAlert, Loader2, Clock, Calendar, CheckSquare,
+  ShieldAlert, Loader2, Clock, Calendar, CheckSquare, ChevronDown,
 } from 'lucide-react'
 import { ActivityItem } from '@/types'
 import { DiarySuggestion } from '@/lib/gemini'
@@ -278,11 +278,7 @@ export default function DiaryView() {
                   Sin sugerencias específicas para este día.
                 </p>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-                  {suggestions.map((s, i) => (
-                    <SuggestionCard key={i} suggestion={s} />
-                  ))}
-                </div>
+                <SuggestionList suggestions={suggestions} />
               )}
             </div>
           </div>
@@ -403,42 +399,82 @@ function ActivityCard({ item, index }: { item: ActivityItem; index: number }) {
   )
 }
 
-/* ─── Suggestion card ─── */
-function SuggestionCard({ suggestion }: { suggestion: DiarySuggestion }) {
-  const meta = SUGGESTION_META[suggestion.type] ?? SUGGESTION_META.alert
-  const { Icon } = meta
+/* ─── Suggestion accordion list ─── */
+function SuggestionList({ suggestions }: { suggestions: DiarySuggestion[] }) {
+  const [openIdx, setOpenIdx] = useState<number | null>(null)
 
   return (
-    <div style={{ padding: '0.75rem', borderRadius: '12px', background: meta.bg, border: `1px solid ${meta.border}` }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-        <div style={{
-          width: '26px', height: '26px', borderRadius: '7px',
-          background: `rgba(${hexToRgb(meta.color)}, 0.15)`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '1px'
-        }}>
-          <Icon size={13} color={meta.color} />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--foreground)' }}>{suggestion.title}</span>
-            <span style={{
-              fontSize: '0.65rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em',
-              color: meta.color, background: `rgba(${hexToRgb(meta.color)}, 0.12)`,
-              padding: '1px 5px', borderRadius: '4px', flexShrink: 0
-            }}>
-              {meta.label}
-            </span>
-            <div style={{
-              width: '6px', height: '6px', borderRadius: '50%',
-              background: PRIORITY_DOT[suggestion.priority] ?? '#94a3b8',
-              marginLeft: 'auto', flexShrink: 0
-            }} title={`Prioridad ${suggestion.priority}`} />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      {suggestions.map((s, i) => {
+        const meta = SUGGESTION_META[s.type] ?? SUGGESTION_META.alert
+        const { Icon } = meta
+        const isOpen = openIdx === i
+
+        return (
+          <div
+            key={i}
+            style={{
+              borderRadius: '10px',
+              border: `1px solid ${isOpen ? meta.border : 'var(--border)'}`,
+              borderLeft: `3px solid ${meta.color}`,
+              background: isOpen ? meta.bg : 'var(--surface-hover)',
+              overflow: 'hidden',
+              transition: 'background 0.15s, border-color 0.15s',
+            }}
+          >
+            {/* Row title — always visible */}
+            <button
+              onClick={() => setOpenIdx(isOpen ? null : i)}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
+                padding: '0.6rem 0.75rem',
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              <div style={{
+                width: '22px', height: '22px', borderRadius: '6px', flexShrink: 0,
+                background: `rgba(${hexToRgb(meta.color)}, 0.15)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Icon size={12} color={meta.color} />
+              </div>
+
+              <span style={{ flex: 1, fontSize: '0.8rem', fontWeight: 600, color: 'var(--foreground)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {s.title}
+              </span>
+
+              <span style={{
+                fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
+                color: meta.color, background: `rgba(${hexToRgb(meta.color)}, 0.12)`,
+                padding: '1px 5px', borderRadius: '4px', flexShrink: 0,
+              }}>
+                {meta.label}
+              </span>
+
+              <div style={{
+                width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0,
+                background: PRIORITY_DOT[s.priority] ?? '#94a3b8',
+              }} title={`Prioridad ${s.priority}`} />
+
+              <ChevronDown
+                size={13}
+                color="var(--text-muted)"
+                style={{ flexShrink: 0, transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+              />
+            </button>
+
+            {/* Detail — only when open */}
+            {isOpen && (
+              <div style={{ padding: '0 0.75rem 0.65rem 2.55rem' }}>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.6, margin: 0 }}>
+                  {s.detail}
+                </p>
+              </div>
+            )}
           </div>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.55, margin: 0 }}>
-            {suggestion.detail}
-          </p>
-        </div>
-      </div>
+        )
+      })}
     </div>
   )
 }
