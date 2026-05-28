@@ -138,7 +138,7 @@ export default function DiaryView() {
       </div>
 
       {/* Layout principal: 2 columnas */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: '1.5rem', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'start' }}>
 
         {/* ── COLUMNA IZQUIERDA: Actividad del día ── */}
         <div>
