@@ -56,10 +56,10 @@ export async function GET(request: Request) {
   } catch { /* table may not exist yet */ }
 
   // ── 2. Before 18:00 local time on today: return pending state ──
-  const todayLocal = new Date().toLocaleDateString('en-CA', { timeZone: timezone })
-  if (date === todayLocal && !isAfter6PM(timezone)) {
-    return NextResponse.json({ summary: null, suggestions: [], pending: true })
-  }
+  // const todayLocal = new Date().toLocaleDateString('en-CA', { timeZone: timezone })
+  // if (date === todayLocal && !isAfter6PM(timezone)) {
+  //   return NextResponse.json({ summary: null, suggestions: [], pending: true })
+  // }
 
   // ── 3. Generate on-demand (past day OR after 18:00 today) ──
   const { start: utcStart, end: utcEnd } = getUTCRangeForLocalDate(date, timezone)
