@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
-import { ArrowRight, MessageSquare, Calendar, CheckSquare, BookOpen, Mic, Star, Zap, Camera } from 'lucide-react'
+import { ArrowRight, MessageSquare, Calendar, CheckSquare, BookOpen, Mic, Star, Zap, Camera, HardHat } from 'lucide-react'
 
 // Colores de construcción
 const C = {
@@ -308,24 +308,20 @@ export default function LandingPage() {
               lineHeight: 1.75, color: 'rgba(28,25,23,0.85)',
               marginBottom: '2rem', fontStyle: 'italic',
             }}>
-              "En obra, el WhatsApp ya es la herramienta de comunicación principal — es lo que usamos para coordinar con cuadrillas, proveedores y jefatura mientras estamos en terreno. Entonces me pregunté: ¿por qué no organizar mi día desde ahí mismo? Creé FlowDesk porque necesitaba algo que se adaptara a ese ritmo, no al revés. Sin aprender apps nuevas, sin salir del flujo de trabajo."
+              "Trabajando en terreno detectamos siempre las mismas falencias: coordinación fragmentada, tareas que se pierden en los chats, y herramientas que no fueron pensadas para el ritmo de obra. FlowDesk nació de esa frustración — ingenieros que conocen el problema, construyendo la solución desde adentro."
             </blockquote>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <div style={{
                 width: '56px', height: '56px', borderRadius: '50%',
-                flexShrink: 0, overflow: 'hidden',
-                border: `2px solid rgba(249,115,22,0.5)`,
+                flexShrink: 0, background: 'rgba(249,115,22,0.12)',
+                border: `2px solid rgba(249,115,22,0.4)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
-                <img
-                  src="/franklin.jpg"
-                  alt="Franklin Zuñiga"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                />
+                <HardHat size={26} color={C.orange} />
               </div>
               <div>
-                <p style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '2px' }}>Franklin Zuñiga</p>
-                <p style={{ fontSize: '0.82rem', color: C.muted }}>Ingeniero Constructor · Creador de FlowDesk</p>
+                <p style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '2px' }}>Equipo FlowDesk</p>
+                <p style={{ fontSize: '0.82rem', color: C.muted }}>Ingenieros Constructores · De la obra para la obra</p>
               </div>
             </div>
           </div>
