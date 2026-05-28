@@ -42,26 +42,34 @@ export async function GET(request: Request) {
   const timezone = profile?.timezone || 'America/Santiago'
   const adminDb  = getAdminDb()
 
-  // ── 1. Return cached summary if available ──
+  const todayLocal = new Date().toLocaleDateString('en-CA', { timeZone: timezone })
+
+  // ── 1. Return cached summary if available (max 30 days old) ──
   try {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10)
     const { data: cached } = await adminDb
       .from('diary_summaries')
       .select('summary, suggestions')
       .eq('user_id', user.id)
       .eq('summary_date', date)
+      .gte('summary_date', thirtyDaysAgo)
       .single()
     if (cached?.summary) {
       return NextResponse.json({ summary: cached.summary, suggestions: cached.suggestions ?? [] })
     }
   } catch { /* table may not exist yet */ }
 
-  // ── 2. Before 18:00 local time on today: return pending state ──
-  // const todayLocal = new Date().toLocaleDateString('en-CA', { timeZone: timezone })
-  // if (date === todayLocal && !isAfter6PM(timezone)) {
-  //   return NextResponse.json({ summary: null, suggestions: [], pending: true })
-  // }
+  // ── 2. Past day with no cache → never regenerate ──
+  if (date < todayLocal) {
+    return NextResponse.json({ summary: null, suggestions: [] })
+  }
 
-  // ── 3. Generate on-demand (past day OR after 18:00 today) ──
+  // ── 3. Today before 18:00 → pending state ──
+  if (!isAfter6PM(timezone)) {
+    return NextResponse.json({ summary: null, suggestions: [], pending: true })
+  }
+
+  // ── 4. Today after 18:00 → generate once ──
   const { start: utcStart, end: utcEnd } = getUTCRangeForLocalDate(date, timezone)
 
   const [
