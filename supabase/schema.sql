@@ -90,6 +90,25 @@ create policy "Service role can insert tasks" on public.tasks
 create policy "Service role can insert events" on public.calendar_events
   for insert with check (true);
 
+-- Resúmenes diarios pre-generados por el cron de las 18:00 h
+create table if not exists public.diary_summaries (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references public.users(id) on delete cascade,
+  summary_date date not null,
+  summary      text,
+  suggestions  jsonb default '[]',
+  generated_at timestamptz default now(),
+  unique(user_id, summary_date)
+);
+
+alter table public.diary_summaries enable row level security;
+
+create policy "Summaries: full access own data" on public.diary_summaries
+  for all using (auth.uid() = user_id);
+
+create policy "Service role can write summaries" on public.diary_summaries
+  for all with check (true);
+
 -- Índices para rendimiento
 create index if not exists idx_tasks_user_id on public.tasks(user_id);
 create index if not exists idx_tasks_status on public.tasks(user_id, status);

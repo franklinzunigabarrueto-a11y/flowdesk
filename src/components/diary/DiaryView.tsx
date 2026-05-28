@@ -4,9 +4,10 @@ import { useState } from 'react'
 import useSWR from 'swr'
 import {
   BookOpen, Mic, Search, ChevronLeft, ChevronRight,
-  ImageIcon, Sparkles, CalendarCheck, Mail, AlertTriangle, ShieldAlert, Loader2
+  ImageIcon, Sparkles, CalendarCheck, Mail, AlertTriangle,
+  ShieldAlert, Loader2, Clock, Calendar, CheckSquare,
 } from 'lucide-react'
-import { DiaryEntry } from '@/types'
+import { ActivityItem } from '@/types'
 import { DiarySuggestion } from '@/lib/gemini'
 import { formatDate, isToday } from '@/lib/utils'
 
@@ -25,6 +26,10 @@ const PRIORITY_DOT: Record<string, string> = {
   high: '#ef4444', medium: '#f59e0b', low: '#22c55e',
 }
 
+const PRIORITY_LABEL: Record<string, string> = {
+  high: 'Alta', medium: 'Media', low: 'Baja',
+}
+
 export default function DiaryView() {
   const [selectedDate, setSelectedDate] = useState(() => new Date().toLocaleDateString('en-CA'))
   const [searchQuery, setSearchQuery] = useState('')
@@ -32,17 +37,19 @@ export default function DiaryView() {
 
   const swrKey = `/api/diary?date=${selectedDate}${committedQuery ? `&q=${encodeURIComponent(committedQuery)}` : ''}`
   const { data } = useSWR(swrKey, fetcher)
-  const entries: DiaryEntry[] = data?.entries ?? []
+  const activities: ActivityItem[] = data?.activities ?? []
   const loading = !data
 
-  // Summary only fires when entries exist and no search filter active
-  const summaryKey = data && entries.length > 0 && !committedQuery
+  const summaryKey = data && activities.length > 0 && !committedQuery
     ? `/api/diary/summary?date=${selectedDate}`
     : null
-  const { data: summaryData, isLoading: summaryLoading } = useSWR(summaryKey, fetcher)
-  const summary: string | null = summaryData?.summary ?? null
+  const { data: summaryData, isLoading: summaryLoading } = useSWR(summaryKey, fetcher, {
+    revalidateOnFocus: false,
+  })
+  const summary: string | null  = summaryData?.summary ?? null
   const suggestions: DiarySuggestion[] = summaryData?.suggestions ?? []
-  const aiError: boolean = summaryData?.aiError ?? false
+  const aiError: boolean  = summaryData?.aiError  ?? false
+  const pending: boolean  = summaryData?.pending  ?? false
 
   function changeDay(delta: number) {
     const [y, m, d] = selectedDate.split('-').map(Number)
@@ -59,7 +66,7 @@ export default function DiaryView() {
       <div style={{ marginBottom: '1.5rem' }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Bitácora de obra</h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '2px' }}>
-          Tu registro diario desde WhatsApp
+          Historial de toda tu actividad diaria
         </p>
       </div>
 
@@ -133,7 +140,7 @@ export default function DiaryView() {
       {/* Layout principal: 2 columnas */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: '1.5rem', alignItems: 'start' }}>
 
-        {/* ── COLUMNA IZQUIERDA: Historial ── */}
+        {/* ── COLUMNA IZQUIERDA: Actividad del día ── */}
         <div>
           <div style={{
             display: 'flex', alignItems: 'center', gap: '8px',
@@ -141,21 +148,21 @@ export default function DiaryView() {
             borderBottom: '1px solid var(--border)'
           }}>
             <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Historial WhatsApp
+              Actividad del día
             </span>
-            {!loading && entries.length > 0 && (
+            {!loading && activities.length > 0 && (
               <span style={{
                 fontSize: '0.72rem', color: 'var(--primary)',
                 background: 'rgba(249,115,22,0.1)', padding: '2px 8px', borderRadius: '100px', fontWeight: 600
               }}>
-                {entries.length} entrada{entries.length !== 1 ? 's' : ''}
+                {activities.length} registro{activities.length !== 1 ? 's' : ''}
               </span>
             )}
           </div>
 
           {loading ? (
             <HistorialSkeleton />
-          ) : entries.length === 0 ? (
+          ) : activities.length === 0 ? (
             <div style={{
               textAlign: 'center', padding: '4rem 2rem',
               background: 'var(--surface)', border: '1px solid var(--border)',
@@ -163,17 +170,17 @@ export default function DiaryView() {
             }}>
               <BookOpen size={40} style={{ margin: '0 auto 1rem', opacity: 0.3 }} />
               <p style={{ fontSize: '0.95rem', fontWeight: 500 }}>
-                Sin entradas para {isSelectedToday ? 'hoy' : 'esta fecha'}
+                Sin actividad para {isSelectedToday ? 'hoy' : 'esta fecha'}
               </p>
               <p style={{ fontSize: '0.8rem', marginTop: '0.5rem', lineHeight: 1.6 }}>
-                Envía un mensaje de texto, audio o foto a tu bot de WhatsApp<br />
-                y aparecerá aquí automáticamente.
+                Envía mensajes al bot de WhatsApp o crea eventos y tareas desde la app<br />
+                y aparecerán aquí automáticamente.
               </p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {entries.map((entry, i) => (
-                <EntryCard key={entry.id} entry={entry} index={i} />
+              {activities.map((item, i) => (
+                <ActivityCard key={item.id} item={item} index={i} />
               ))}
             </div>
           )}
@@ -201,17 +208,25 @@ export default function DiaryView() {
               </div>
               <div>
                 <p style={{ fontSize: '0.82rem', fontWeight: 600 }}>Resumen del día</p>
-                <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '1px' }}>Generado con IA</p>
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '1px' }}>Generado con IA · 18:00 h</p>
               </div>
             </div>
 
             <div style={{ padding: '1rem 1.25rem', minHeight: '80px' }}>
               {!summaryKey ? (
                 <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                  {loading ? 'Cargando entradas...' : 'Sin actividad registrada para generar resumen.'}
+                  {loading ? 'Cargando actividad...' : 'Sin actividad registrada para generar resumen.'}
                 </p>
               ) : summaryLoading ? (
                 <SummaryLoadingState />
+              ) : pending ? (
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                  <Clock size={15} color="var(--text-muted)" style={{ marginTop: '2px', flexShrink: 0 }} />
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.65, margin: 0 }}>
+                    El resumen diario se genera automáticamente a las <strong style={{ color: 'var(--foreground)' }}>18:00 h (hora Chile)</strong>.<br />
+                    Vuelve esta tarde para ver el análisis de tu jornada.
+                  </p>
+                </div>
               ) : aiError ? (
                 <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
                   IA temporalmente no disponible. Verifica tu conexión.
@@ -254,6 +269,10 @@ export default function DiaryView() {
                 </p>
               ) : summaryLoading ? (
                 <SuggestionsLoadingState />
+              ) : pending ? (
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6, padding: '0.25rem 0.375rem' }}>
+                  Las sugerencias se habilitarán junto con el resumen a las 18:00 h.
+                </p>
               ) : suggestions.length === 0 ? (
                 <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6, padding: '0.25rem 0.375rem' }}>
                   Sin sugerencias específicas para este día.
@@ -273,22 +292,23 @@ export default function DiaryView() {
   )
 }
 
-/* ─── Entry card ─── */
-function EntryCard({ entry, index }: { entry: DiaryEntry; index: number }) {
-  const isAudio = Boolean(entry.audio_url)
-  const isPhoto = Boolean(entry.image_url)
+/* ─── Activity card — handles all source types ─── */
+function ActivityCard({ item, index }: { item: ActivityItem; index: number }) {
+  const cfg = {
+    whatsapp_text:  { Icon: BookOpen,     color: 'var(--primary)', bg: 'rgba(249,115,22,0.1)', border: 'rgba(249,115,22,0.2)', accent: 'var(--primary)', label: 'Mensaje de texto' },
+    whatsapp_audio: { Icon: Mic,          color: '#ef4444',        bg: 'rgba(239,68,68,0.1)',  border: 'rgba(239,68,68,0.2)',  accent: '#ef4444',        label: 'Audio transcrito' },
+    whatsapp_photo: { Icon: ImageIcon,    color: '#22c55e',        bg: 'rgba(34,197,94,0.1)', border: 'rgba(34,197,94,0.2)',  accent: '#22c55e',        label: 'Foto de obra' },
+    event:          { Icon: Calendar,     color: '#3b82f6',        bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.2)', accent: '#3b82f6',        label: 'Evento creado' },
+    task:           { Icon: CheckSquare,  color: '#8b5cf6',        bg: 'rgba(139,92,246,0.1)', border: 'rgba(139,92,246,0.2)', accent: '#8b5cf6',        label: 'Tarea creada' },
+  }[item.source]
 
-  const borderColor = isAudio ? '#ef4444' : isPhoto ? '#22c55e' : 'var(--primary)'
-  const iconBg = isAudio ? 'rgba(239,68,68,0.1)' : isPhoto ? 'rgba(34,197,94,0.1)' : 'rgba(249,115,22,0.1)'
-  const iconBorder = isAudio ? 'rgba(239,68,68,0.2)' : isPhoto ? 'rgba(34,197,94,0.2)' : 'rgba(249,115,22,0.2)'
-  const iconColor = isAudio ? '#ef4444' : isPhoto ? '#22c55e' : 'var(--primary)'
-  const label = isAudio ? 'Audio transcrito' : isPhoto ? 'Foto de obra' : 'Mensaje de texto'
-  const Icon = isAudio ? Mic : isPhoto ? ImageIcon : BookOpen
+  const time = new Date(item.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+  const { Icon } = cfg
 
   return (
     <div style={{
       background: 'var(--surface)', border: '1px solid var(--border)',
-      borderLeft: `3px solid ${borderColor}`,
+      borderLeft: `3px solid ${cfg.accent}`,
       borderRadius: '16px', overflow: 'hidden',
       animation: 'fadeIn 0.3s ease',
       animationDelay: `${index * 0.05}s`,
@@ -303,46 +323,80 @@ function EntryCard({ entry, index }: { entry: DiaryEntry; index: number }) {
       }}>
         <div style={{
           width: '28px', height: '28px', borderRadius: '8px',
-          background: iconBg, border: `1px solid ${iconBorder}`,
+          background: cfg.bg, border: `1px solid ${cfg.border}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
         }}>
-          <Icon size={14} color={iconColor} />
+          <Icon size={14} color={cfg.color} />
         </div>
         <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-          {label} · {new Date(entry.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+          {cfg.label} · {time}
         </span>
-        {entry.task_references && entry.task_references.length > 0 && (
-          <span style={{
-            marginLeft: 'auto', fontSize: '0.72rem', color: 'var(--primary)',
-            background: 'rgba(249,115,22,0.1)', padding: '2px 8px', borderRadius: '100px'
-          }}>
-            {entry.task_references.length} tarea{entry.task_references.length > 1 ? 's' : ''}
-          </span>
-        )}
       </div>
 
-      {/* Imagen (si aplica) */}
-      {entry.image_url && (
+      {/* Imagen */}
+      {item.image_url && (
         <div style={{ padding: '0.875rem 1.25rem 0' }}>
-          <a href={entry.image_url} target="_blank" rel="noopener noreferrer" style={{ display: 'block' }}>
+          <a href={item.image_url} target="_blank" rel="noopener noreferrer" style={{ display: 'block' }}>
             <img
-              src={entry.image_url}
-              alt="Foto de obra"
-              style={{
-                width: '100%', maxHeight: '220px', objectFit: 'cover',
-                borderRadius: '10px', border: '1px solid var(--border)', display: 'block'
-              }}
+              src={item.image_url}
+              alt="Adjunto"
+              style={{ width: '100%', maxHeight: '220px', objectFit: 'cover', borderRadius: '10px', border: '1px solid var(--border)', display: 'block' }}
             />
           </a>
         </div>
       )}
 
-      {/* Contenido */}
-      {entry.content && (
+      {/* Contenido WhatsApp */}
+      {item.content && (item.source === 'whatsapp_text' || item.source === 'whatsapp_audio' || item.source === 'whatsapp_photo') && (
         <div style={{ padding: '0.875rem 1.25rem' }}>
           <p style={{ fontSize: '0.9rem', lineHeight: 1.7, color: 'var(--foreground)', whiteSpace: 'pre-wrap' }}>
-            {entry.content}
+            {item.content}
           </p>
+        </div>
+      )}
+
+      {/* Contenido Evento */}
+      {item.source === 'event' && (
+        <div style={{ padding: '0.875rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--foreground)', margin: 0 }}>
+            {item.title}
+          </p>
+          {item.meta?.start_time && (
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+              🕐 {new Date(item.meta.start_time).toLocaleString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+            </p>
+          )}
+          {item.description && (
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>{item.description}</p>
+          )}
+        </div>
+      )}
+
+      {/* Contenido Tarea */}
+      {item.source === 'task' && (
+        <div style={{ padding: '0.875rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--foreground)', margin: 0 }}>
+            {item.title}
+          </p>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {item.meta?.priority && (
+              <span style={{
+                fontSize: '0.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: '100px',
+                color: { high: '#ef4444', medium: '#f59e0b', low: '#22c55e' }[item.meta.priority] ?? 'var(--text-muted)',
+                background: { high: 'rgba(239,68,68,0.1)', medium: 'rgba(245,158,11,0.1)', low: 'rgba(34,197,94,0.1)' }[item.meta.priority] ?? 'transparent',
+              }}>
+                {PRIORITY_LABEL[item.meta.priority] ?? item.meta.priority}
+              </span>
+            )}
+            {item.meta?.due_date && (
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Clock size={11} /> {item.meta.due_date}
+              </span>
+            )}
+          </div>
+          {item.description && (
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>{item.description}</p>
+          )}
         </div>
       )}
     </div>
@@ -355,10 +409,7 @@ function SuggestionCard({ suggestion }: { suggestion: DiarySuggestion }) {
   const { Icon } = meta
 
   return (
-    <div style={{
-      padding: '0.75rem', borderRadius: '12px',
-      background: meta.bg, border: `1px solid ${meta.border}`,
-    }}>
+    <div style={{ padding: '0.75rem', borderRadius: '12px', background: meta.bg, border: `1px solid ${meta.border}` }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
         <div style={{
           width: '26px', height: '26px', borderRadius: '7px',
@@ -369,9 +420,7 @@ function SuggestionCard({ suggestion }: { suggestion: DiarySuggestion }) {
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--foreground)' }}>
-              {suggestion.title}
-            </span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--foreground)' }}>{suggestion.title}</span>
             <span style={{
               fontSize: '0.65rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em',
               color: meta.color, background: `rgba(${hexToRgb(meta.color)}, 0.12)`,
@@ -394,15 +443,12 @@ function SuggestionCard({ suggestion }: { suggestion: DiarySuggestion }) {
   )
 }
 
-/* ─── Skeleton historial ─── */
+/* ─── Skeletons ─── */
 function HistorialSkeleton() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       {[0, 0.08, 0.16].map((d, i) => (
-        <div key={i} style={{
-          border: '1px solid var(--border)', borderLeft: '3px solid var(--border)',
-          borderRadius: '16px', overflow: 'hidden', background: 'var(--surface)'
-        }}>
+        <div key={i} style={{ border: '1px solid var(--border)', borderLeft: '3px solid var(--border)', borderRadius: '16px', overflow: 'hidden', background: 'var(--surface)' }}>
           <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
             <SkPulse w={28} h={28} r={8} delay={d} />
             <SkPulse w={120} h={12} r={4} delay={d + 0.04} />
@@ -417,7 +463,6 @@ function HistorialSkeleton() {
   )
 }
 
-/* ─── Loading states para panel derecho ─── */
 function SummaryLoadingState() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -450,12 +495,9 @@ function SuggestionsLoadingState() {
   )
 }
 
-/* ─── Skeleton base ─── */
 const skBg = `linear-gradient(90deg, var(--border) 25%, rgba(249,115,22,0.07) 50%, var(--border) 75%)`
 
-function SkPulse({ w = '100%', h = 14, r = 6, delay = 0 }: {
-  w?: string | number; h?: number; r?: number; delay?: number
-}) {
+function SkPulse({ w = '100%', h = 14, r = 6, delay = 0 }: { w?: string | number; h?: number; r?: number; delay?: number }) {
   return (
     <div style={{
       width: w, height: h, borderRadius: r, flexShrink: 0,
@@ -466,7 +508,6 @@ function SkPulse({ w = '100%', h = 14, r = 6, delay = 0 }: {
   )
 }
 
-/* ─── Helper ─── */
 function hexToRgb(hex: string): string {
   const m = hex.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i)
   if (!m) return '0,0,0'

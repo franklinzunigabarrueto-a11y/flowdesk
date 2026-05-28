@@ -37,6 +37,25 @@ export interface CalendarEvent {
   completed?: boolean
 }
 
+export type ActivitySource = 'whatsapp_text' | 'whatsapp_audio' | 'whatsapp_photo' | 'event' | 'task'
+
+export interface ActivityItem {
+  id: string
+  source: ActivitySource
+  content?: string
+  title?: string
+  description?: string
+  image_url?: string | null
+  audio_url?: string | null
+  created_at: string
+  meta?: {
+    priority?: string
+    due_date?: string
+    start_time?: string
+    end_time?: string
+  }
+}
+
 export interface UserProfile {
   id: string
   email: string
