@@ -77,22 +77,21 @@ export async function GET(request: Request) {
       .neq('content', '__processing__')
       .order('created_at', { ascending: true }),
 
-    // Only events created from web app (no whatsapp_message_id)
+    // Events that happen on this day (by start_time, not created_at)
     supabase.from('calendar_events')
       .select('id, title, description, start_time, end_time, created_at')
       .eq('user_id', user.id)
       .is('whatsapp_message_id', null)
-      .gte('created_at', utcStart)
-      .lt('created_at', utcEnd)
-      .order('created_at', { ascending: true }),
+      .gte('start_time', utcStart)
+      .lt('start_time', utcEnd)
+      .order('start_time', { ascending: true }),
 
-    // Only tasks created from web app (no whatsapp_message_id)
+    // Tasks due on this day (by due_date); tasks without due_date are excluded
     supabase.from('tasks')
       .select('id, title, description, priority, due_date, status, created_at')
       .eq('user_id', user.id)
       .is('whatsapp_message_id', null)
-      .gte('created_at', utcStart)
-      .lt('created_at', utcEnd)
+      .eq('due_date', date)
       .order('created_at', { ascending: true }),
   ])
 

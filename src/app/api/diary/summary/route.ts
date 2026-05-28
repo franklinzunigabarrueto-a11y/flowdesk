@@ -80,15 +80,14 @@ export async function GET(request: Request) {
       .select('title, start_time, created_at')
       .eq('user_id', user.id)
       .is('whatsapp_message_id', null)
-      .gte('created_at', utcStart)
-      .lt('created_at', utcEnd)
-      .order('created_at', { ascending: true }),
+      .gte('start_time', utcStart)
+      .lt('start_time', utcEnd)
+      .order('start_time', { ascending: true }),
     adminDb.from('tasks')
       .select('title, priority, due_date, created_at')
       .eq('user_id', user.id)
       .is('whatsapp_message_id', null)
-      .gte('created_at', utcStart)
-      .lt('created_at', utcEnd)
+      .eq('due_date', date)
       .order('created_at', { ascending: true }),
   ])
 
