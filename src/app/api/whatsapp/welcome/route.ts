@@ -11,10 +11,12 @@ export async function POST(request: Request) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
-    await sendWelcomeMessage(phone, name)
+    await sendWelcomeMessage(phone.replace(/\D/g, ''), name)
+    console.log(`[welcome] Mensaje enviado a ${phone} (${name})`)
     return NextResponse.json({ ok: true })
-  } catch (error) {
-    console.error('Error enviando bienvenida:', error)
-    return NextResponse.json({ error: 'Error al enviar mensaje' }, { status: 500 })
+  } catch (error: any) {
+    console.error('[welcome] Error enviando bienvenida:', error?.message ?? error)
+    // Return ok so onboarding doesn't block the user, but log clearly
+    return NextResponse.json({ ok: true, warning: 'welcome_failed' })
   }
 }
