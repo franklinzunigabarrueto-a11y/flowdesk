@@ -59,17 +59,18 @@ export async function GET(request: Request) {
     }
   } catch { /* table may not exist yet */ }
 
-  // ── 2. Past day with no cache → never regenerate ──
-  if (date < todayLocal) {
+  // ── 2. Días con más de 30 días de antigüedad → sin generación ──
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10)
+  if (date < thirtyDaysAgo) {
     return NextResponse.json({ summary: null, suggestions: [] })
   }
 
-  // ── 3. Today before 18:00 → pending state ──
-  if (!isAfter6PM(timezone)) {
+  // ── 3. Hoy antes de las 18:00 → estado pendiente ──
+  if (date === todayLocal && !isAfter6PM(timezone)) {
     return NextResponse.json({ summary: null, suggestions: [], pending: true })
   }
 
-  // ── 4. Today after 18:00 → generate once ──
+  // ── 4. Día pasado sin caché o hoy después de las 18:00 → generar y guardar ──
   const { start: utcStart, end: utcEnd } = getUTCRangeForLocalDate(date, timezone)
 
   const [
