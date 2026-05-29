@@ -31,15 +31,8 @@ export default function DashboardShell({ user, children }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [modal, setModal] = useState<null | 'cuenta' | 'plan' | 'preferencias'>(null)
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
-  const [isMobile, setIsMobile] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768)
-    check()
-    window.addEventListener('resize', check)
-    return () => window.removeEventListener('resize', check)
-  }, [])
+  const mobileMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const saved = localStorage.getItem('flowdesk-theme') as 'light' | 'dark' | null
@@ -59,7 +52,9 @@ export default function DashboardShell({ user, children }: Props) {
   useEffect(() => {
     if (!menuOpen) return
     const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
+      const inDesktop = menuRef.current?.contains(e.target as Node)
+      const inMobile  = mobileMenuRef.current?.contains(e.target as Node)
+      if (!inDesktop && !inMobile) setMenuOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -90,8 +85,7 @@ export default function DashboardShell({ user, children }: Props) {
     setModal(m)
   }
 
-  /* ── Dropdown menu items shared by desktop + mobile ── */
-  const profileMenuItems = (
+  const profileDropdownItems = (
     <>
       {([
         { icon: User,       label: 'Mi cuenta',    action: () => openModal('cuenta') },
@@ -100,133 +94,71 @@ export default function DashboardShell({ user, children }: Props) {
       ] as const).map(({ icon: Icon, label, action }) => (
         <button key={label} onClick={action} style={{
           width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
-          padding: '12px 16px', background: 'transparent', border: 'none',
-          color: 'var(--foreground)', cursor: 'pointer', fontSize: '0.9rem',
-          textAlign: 'left',
+          padding: '11px 14px', background: 'transparent', border: 'none',
+          color: 'var(--foreground)', cursor: 'pointer', fontSize: '0.875rem', textAlign: 'left',
         }}>
-          <Icon size={16} color="var(--text-muted)" />
-          {label}
+          <Icon size={15} color="var(--text-muted)" /> {label}
         </button>
       ))}
       <div style={{ height: '1px', background: 'var(--border)', margin: '2px 0' }} />
       <button onClick={() => { setMenuOpen(false); handleLogout() }} style={{
         width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
-        padding: '12px 16px', background: 'transparent', border: 'none',
-        color: '#ef4444', cursor: 'pointer', fontSize: '0.9rem', textAlign: 'left',
+        padding: '11px 14px', background: 'transparent', border: 'none',
+        color: '#ef4444', cursor: 'pointer', fontSize: '0.875rem', textAlign: 'left',
       }}>
-        <LogOut size={16} color="#ef4444" />
-        Cerrar sesión
+        <LogOut size={15} color="#ef4444" /> Cerrar sesión
       </button>
     </>
   )
 
-  if (isMobile) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', background: 'var(--background)', overflow: 'hidden' }}>
-
-        {/* ── Mobile top bar ── */}
-        <header style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '0 1rem', height: '52px', flexShrink: 0,
-          background: 'var(--surface)', borderBottom: '1px solid var(--border)',
-          position: 'relative', zIndex: 50,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img src="/logo.png?v=4" width="30" height="30" alt="FlowDesk" />
-            <span style={{ fontSize: '1rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
-              Flow<span style={{ color: '#f97316' }}>Desk</span>
-            </span>
-          </div>
-
-          {/* Profile button */}
-          <div ref={menuRef} style={{ position: 'relative' }}>
-            <button
-              onClick={() => setMenuOpen(o => !o)}
-              style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', borderRadius: '50%' }}
-            >
-              {user.avatar_url ? (
-                <img src={user.avatar_url} alt="" style={{ width: '34px', height: '34px', borderRadius: '50%' }} />
-              ) : (
-                <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <User size={18} color="white" />
-                </div>
-              )}
-            </button>
-
-            {menuOpen && (
-              <div style={{
-                position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-                width: '220px',
-                background: 'var(--surface)', border: '1px solid var(--border)',
-                borderRadius: '14px',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-                overflow: 'hidden', animation: 'fadeIn 0.15s ease', zIndex: 60,
-              }}>
-                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
-                  <p style={{ fontSize: '0.85rem', fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</p>
-                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</p>
-                </div>
-                {profileMenuItems}
-              </div>
-            )}
-          </div>
-        </header>
-
-        {/* ── Main content ── */}
-        <main style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
-          {children}
-        </main>
-
-        {/* ── Mobile bottom nav ── */}
-        <nav style={{
-          display: 'flex', alignItems: 'stretch',
-          height: '60px', flexShrink: 0,
-          background: 'var(--surface)', borderTop: '1px solid var(--border)',
-          paddingBottom: 'env(safe-area-inset-bottom)',
-        }}>
-          {navItems.map(({ href, icon: Icon, label }) => {
-            const active = pathname === href
-            return (
-              <Link key={href} href={href} style={{
-                flex: 1, display: 'flex', flexDirection: 'column',
-                alignItems: 'center', justifyContent: 'center', gap: '3px',
-                textDecoration: 'none',
-                color: active ? 'var(--primary)' : 'var(--text-muted)',
-                background: 'transparent',
-                fontSize: '0.6rem', fontWeight: active ? 700 : 400,
-                transition: 'color 0.15s',
-                position: 'relative',
-              }}>
-                {active && (
-                  <div style={{
-                    position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
-                    width: '32px', height: '3px', borderRadius: '0 0 4px 4px',
-                    background: 'var(--primary)',
-                  }} />
-                )}
-                <Icon size={active ? 22 : 20} />
-                <span>{label}</span>
-              </Link>
-            )
-          })}
-        </nav>
-      </div>
-    )
-  }
-
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--background)' }}>
-      {/* Sidebar — desktop only */}
-      <aside style={{
-        width: '220px', flexShrink: 0,
-        background: 'var(--surface)',
-        borderRight: '1px solid var(--border)',
-        display: 'flex', flexDirection: 'column',
-        padding: '1.5rem 0',
-        position: 'fixed', top: 0, left: 0, bottom: 0,
-        zIndex: 50,
+    <div className="shell-root" style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--background)' }}>
+
+      {/* ── Mobile header (hidden on desktop via CSS) ── */}
+      <header className="shell-mobile-header" style={{
+        position: 'fixed', top: 0, left: 0, right: 0, height: '52px',
+        alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 1rem', zIndex: 50,
+        background: 'var(--surface)', borderBottom: '1px solid var(--border)',
       }}>
-        {/* Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <img src="/logo.png?v=4" width="30" height="30" alt="FlowDesk" />
+          <span style={{ fontSize: '1rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
+            Flow<span style={{ color: '#f97316' }}>Desk</span>
+          </span>
+        </div>
+        <div ref={mobileMenuRef} style={{ position: 'relative' }}>
+          <button onClick={() => setMenuOpen(o => !o)}
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex' }}>
+            {user.avatar_url
+              ? <img src={user.avatar_url} alt="" style={{ width: '34px', height: '34px', borderRadius: '50%' }} />
+              : <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={18} color="white" /></div>
+            }
+          </button>
+          {menuOpen && (
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: '220px',
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              borderRadius: '14px', boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+              overflow: 'hidden', animation: 'fadeIn 0.15s ease', zIndex: 100,
+            }}>
+              <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)' }}>
+                <p style={{ fontSize: '0.85rem', fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</p>
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</p>
+              </div>
+              {profileDropdownItems}
+            </div>
+          )}
+        </div>
+      </header>
+
+      {/* ── Sidebar (hidden on mobile via CSS) ── */}
+      <aside className="shell-sidebar" style={{
+        width: '220px', flexShrink: 0,
+        background: 'var(--surface)', borderRight: '1px solid var(--border)',
+        flexDirection: 'column', padding: '1.5rem 0',
+        position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 50,
+      }}>
         <div style={{ padding: '0 1.25rem 1.5rem', borderBottom: '1px solid var(--border)', marginBottom: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <img src="/logo.png?v=4" width="42" height="42" alt="FlowDesk" style={{ display: 'block', flexShrink: 0 }} />
@@ -235,8 +167,6 @@ export default function DashboardShell({ user, children }: Props) {
             </span>
           </div>
         </div>
-
-        {/* Nav */}
         <nav style={{ flex: 1, padding: '0 0.75rem' }}>
           {navItems.map(({ href, icon: Icon, label }) => {
             const active = pathname === href
@@ -250,106 +180,90 @@ export default function DashboardShell({ user, children }: Props) {
                 textDecoration: 'none', transition: 'all 0.2s',
                 boxShadow: active ? '0 0 15px rgba(249,115,22,0.35)' : 'none',
               }}>
-                <Icon size={18} />
-                {label}
+                <Icon size={18} /> {label}
               </Link>
             )
           })}
         </nav>
-
-        {/* Profile section */}
-        <div ref={menuRef} style={{
-          padding: '1rem 0.75rem 0',
-          borderTop: '1px solid var(--border)',
-          marginTop: '1rem',
-          position: 'relative',
-        }}>
-          {/* Dropdown */}
+        <div ref={menuRef} style={{ padding: '1rem 0.75rem 0', borderTop: '1px solid var(--border)', marginTop: '1rem', position: 'relative' }}>
           {menuOpen && (
             <div style={{
-              position: 'absolute',
-              bottom: 'calc(100% + 6px)',
-              left: 0, right: 0,
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: '14px',
-              boxShadow: '0 -4px 24px rgba(0,0,0,0.12), 0 4px 24px rgba(0,0,0,0.08)',
-              overflow: 'hidden',
-              animation: 'fadeIn 0.15s ease',
-              zIndex: 60,
+              position: 'absolute', bottom: 'calc(100% + 6px)', left: 0, right: 0,
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              borderRadius: '14px', boxShadow: '0 -4px 24px rgba(0,0,0,0.12)',
+              overflow: 'hidden', animation: 'fadeIn 0.15s ease', zIndex: 60,
             }}>
-              {profileMenuItems}
+              {profileDropdownItems}
             </div>
           )}
-
-          {/* Profile button */}
-          <button
-            onClick={() => setMenuOpen(o => !o)}
-            style={{
-              width: '100%', display: 'flex', alignItems: 'center', gap: '9px',
-              padding: '8px 10px', borderRadius: '10px',
-              background: menuOpen ? 'var(--surface-hover)' : 'transparent',
-              border: '1px solid var(--border)',
-              cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s',
-            }}
-          >
-            {user.avatar_url ? (
-              <img src={user.avatar_url} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0 }} />
-            ) : (
-              <div style={{
-                width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0,
-                background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <User size={16} color="white" />
-              </div>
-            )}
+          <button onClick={() => setMenuOpen(o => !o)} style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: '9px',
+            padding: '8px 10px', borderRadius: '10px',
+            background: menuOpen ? 'var(--surface-hover)' : 'transparent',
+            border: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s',
+          }}>
+            {user.avatar_url
+              ? <img src={user.avatar_url} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0 }} />
+              : <div style={{ width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0, background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={16} color="white" /></div>
+            }
             <div style={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
-              <p style={{ fontSize: '0.8rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--foreground)', margin: 0 }}>
-                {user.name}
-              </p>
-              <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>
-                {user.email}
-              </p>
+              <p style={{ fontSize: '0.8rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--foreground)', margin: 0 }}>{user.name}</p>
+              <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{user.email}</p>
             </div>
-            {menuOpen
-              ? <ChevronUp size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />
-              : <ChevronDown size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />}
+            {menuOpen ? <ChevronUp size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} /> : <ChevronDown size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />}
           </button>
         </div>
       </aside>
 
-      {/* Main */}
-      <main style={{ flex: 1, marginLeft: '220px', height: '100vh', overflow: 'hidden' }}>
+      {/* ── Main content ── */}
+      <main className="shell-main" style={{ flex: 1, marginLeft: '220px', height: '100vh', overflow: 'hidden' }}>
         {children}
       </main>
 
-      {/* Modal overlay */}
+      {/* ── Mobile bottom nav (hidden on desktop via CSS) ── */}
+      <nav className="shell-bottom-nav" style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0,
+        height: '60px', zIndex: 50,
+        alignItems: 'stretch',
+        background: 'var(--surface)', borderTop: '1px solid var(--border)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+      }}>
+        {navItems.map(({ href, icon: Icon, label }) => {
+          const active = pathname === href
+          return (
+            <Link key={href} href={href} style={{
+              flex: 1, display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', gap: '3px',
+              textDecoration: 'none', position: 'relative',
+              color: active ? 'var(--primary)' : 'var(--text-muted)',
+              fontSize: '0.6rem', fontWeight: active ? 700 : 400,
+              transition: 'color 0.15s',
+            }}>
+              {active && <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: '32px', height: '3px', borderRadius: '0 0 4px 4px', background: 'var(--primary)' }} />}
+              <Icon size={active ? 22 : 20} />
+              <span>{label}</span>
+            </Link>
+          )
+        })}
+      </nav>
+
+      {/* ── Modals ── */}
       {modal && (
-        <div
-          onClick={() => setModal(null)}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 200,
-            background: 'rgba(0,0,0,0.45)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            backdropFilter: 'blur(4px)',
-          }}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: '20px',
-              width: modal === 'preferencias' ? '360px' : '480px',
-              maxWidth: '92vw',
-              maxHeight: '85vh',
-              overflow: 'auto',
-              boxShadow: '0 24px 80px rgba(0,0,0,0.22)',
-              animation: 'fadeIn 0.18s ease',
-            }}
-          >
-            {modal === 'cuenta'       && <ModalCuenta       user={user}              onClose={() => setModal(null)} />}
-            {modal === 'plan'         && <ModalPlan                                  onClose={() => setModal(null)} />}
+        <div onClick={() => setModal(null)} style={{
+          position: 'fixed', inset: 0, zIndex: 200,
+          background: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backdropFilter: 'blur(4px)',
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: '20px',
+            width: modal === 'preferencias' ? '360px' : '480px',
+            maxWidth: '92vw', maxHeight: '85vh', overflow: 'auto',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.22)', animation: 'fadeIn 0.18s ease',
+          }}>
+            {modal === 'cuenta'       && <ModalCuenta       user={user}   onClose={() => setModal(null)} />}
+            {modal === 'plan'         && <ModalPlan                       onClose={() => setModal(null)} />}
             {modal === 'preferencias' && <ModalPreferencias theme={theme} onToggle={toggleTheme} onClose={() => setModal(null)} />}
           </div>
         </div>

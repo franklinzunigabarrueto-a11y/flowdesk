@@ -95,31 +95,24 @@ html, body {
 .animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
 .animate-float { animation: float 3s ease-in-out infinite; }
 
-/* ── Mobile responsive ── */
+/* ── Layout responsive ── */
+.shell-sidebar     { display: flex; }
+.shell-mobile-header { display: none; }
+.shell-bottom-nav  { display: none; }
+.shell-main        { margin-left: 220px; }
+
 @media (max-width: 767px) {
-  /* Page padding reduced on mobile */
-  .page-content {
-    padding: 1rem !important;
+  .shell-sidebar       { display: none !important; }
+  .shell-mobile-header { display: flex !important; }
+  .shell-bottom-nav    { display: flex !important; }
+  .shell-main {
+    margin-left: 0 !important;
+    height: 100vh !important;
+    padding-top: 52px !important;
+    padding-bottom: 60px !important;
+    overflow-y: auto !important;
   }
 
-  /* Tables scroll horizontally */
-  .table-scroll {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Hide desktop-only elements */
-  .desktop-only {
-    display: none !important;
-  }
-
-  /* Full-width cards */
-  .card-grid {
-    grid-template-columns: 1fr !important;
-  }
-
-  /* Larger tap targets */
-  button, a {
-    min-height: 40px;
-  }
+  /* Page padding on mobile */
+  .page-content { padding: 1rem !important; }
 }
