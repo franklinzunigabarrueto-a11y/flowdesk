@@ -290,6 +290,7 @@ export default function CalendarView() {
   type DayExpand = { day: number; rect: { top: number; left: number; width: number; height: number }; phase: 'start' | 'open' }
   const [dayExpand,   setDayExpand]   = useState<DayExpand | null>(null)
   const [loadingDay,  setLoadingDay]  = useState<number | null>(null)
+  const [cursorPos,   setCursorPos]   = useState<{ x: number; y: number } | null>(null)
   const expandTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
   const loadingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -575,9 +576,11 @@ export default function CalendarView() {
                           setDayExpand({ day, rect: { top: r.top, left: r.left, width: r.width, height: r.height }, phase: 'start' })
                         }, 2000)
                       }}
+                      onMouseMove={e => setCursorPos({ x: e.clientX, y: e.clientY })}
                       onMouseLeave={() => {
                         setHoveredDay(null)
                         setLoadingDay(null)
+                        setCursorPos(null)
                         if (expandTimer.current)  { clearTimeout(expandTimer.current);  expandTimer.current  = null }
                         if (loadingTimer.current) { clearTimeout(loadingTimer.current); loadingTimer.current = null }
                       }}
@@ -591,27 +594,6 @@ export default function CalendarView() {
                         boxShadow: isToday ? '0 0 15px var(--primary-glow)' : 'none', transition:'all 0.15s',
                         position:'relative',
                       }}>
-                      {/* Anillo de carga */}
-                      {loadingDay === day && (
-                        <svg
-                          viewBox="0 0 36 36"
-                          style={{ position:'absolute', inset:0, width:'100%', height:'100%', pointerEvents:'none' }}
-                        >
-                          <circle
-                            cx="18" cy="18" r="15"
-                            fill="none"
-                            stroke={isToday ? 'rgba(255,255,255,0.6)' : 'var(--primary)'}
-                            strokeWidth="1.8"
-                            strokeDasharray="94.2"
-                            strokeLinecap="round"
-                            style={{
-                              transformOrigin:'center',
-                              transform:'rotate(-90deg)',
-                              animation:'fillRing 1.5s linear forwards',
-                            }}
-                          />
-                        </svg>
-                      )}
                       {day}
                       {evs.length > 0 && (
                         <div style={{ display:'flex', gap:'2px' }}>
@@ -627,6 +609,44 @@ export default function CalendarView() {
             </div>
           </div>
           </div>
+
+          {/* ── Cursor loading ring ── */}
+          {loadingDay !== null && cursorPos && createPortal(
+            <svg
+              width="32" height="32"
+              viewBox="0 0 32 32"
+              style={{
+                position:'fixed',
+                left: cursorPos.x - 16,
+                top:  cursorPos.y - 16,
+                pointerEvents:'none',
+                zIndex:9997,
+                overflow:'visible',
+              }}
+            >
+              <defs>
+                <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%"   stopColor="#f97316" stopOpacity="0" />
+                  <stop offset="60%"  stopColor="#f97316" stopOpacity="0.5" />
+                  <stop offset="100%" stopColor="#f97316" stopOpacity="0.9" />
+                </linearGradient>
+              </defs>
+              <circle
+                cx="16" cy="16" r="13"
+                fill="none"
+                stroke="url(#ringGrad)"
+                strokeWidth="2.2"
+                strokeDasharray="81.7"
+                strokeLinecap="round"
+                style={{
+                  transformOrigin:'center',
+                  transform:'rotate(-90deg)',
+                  animation:'fillRing 1.5s linear forwards',
+                }}
+              />
+            </svg>,
+            document.body
+          )}
 
           {/* ── Day expand portal ── */}
           {dayExpand && createPortal((() => {
