@@ -96,10 +96,9 @@ html, body {
 .animate-float { animation: float 3s ease-in-out infinite; }
 
 /* ── Layout responsive ── */
-.shell-sidebar     { display: flex; }
-.shell-mobile-header { display: none; }
-.shell-bottom-nav  { display: none; }
-.shell-main        { margin-left: 220px; }
+.shell-sidebar       { display: flex !important; }
+.shell-mobile-header { display: none !important; }
+.shell-bottom-nav    { display: none !important; }
 
 @media (max-width: 767px) {
   .shell-sidebar       { display: none !important; }
@@ -112,7 +111,5 @@ html, body {
     padding-bottom: 60px !important;
     overflow-y: auto !important;
   }
-
-  /* Page padding on mobile */
   .page-content { padding: 1rem !important; }
 }

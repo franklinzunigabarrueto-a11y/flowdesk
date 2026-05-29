@@ -158,6 +158,7 @@ export default function DashboardShell({ user, children }: Props) {
         background: 'var(--surface)', borderRight: '1px solid var(--border)',
         flexDirection: 'column', padding: '1.5rem 0',
         position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 50,
+        display: 'flex',
       }}>
         <div style={{ padding: '0 1.25rem 1.5rem', borderBottom: '1px solid var(--border)', marginBottom: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
