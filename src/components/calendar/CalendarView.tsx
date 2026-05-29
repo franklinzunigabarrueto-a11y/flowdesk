@@ -288,8 +288,10 @@ export default function CalendarView() {
 
   /* Day expand animation */
   type DayExpand = { day: number; rect: { top: number; left: number; width: number; height: number }; phase: 'start' | 'open' }
-  const [dayExpand, setDayExpand] = useState<DayExpand | null>(null)
-  const expandTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [dayExpand,   setDayExpand]   = useState<DayExpand | null>(null)
+  const [loadingDay,  setLoadingDay]  = useState<number | null>(null)
+  const expandTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const loadingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (dayExpand?.phase !== 'start') return
@@ -563,16 +565,21 @@ export default function CalendarView() {
                       onDoubleClick={() => openQuickCreate(`${year}-${pad(month+1)}-${pad(day)}`, '08:00')}
                       onMouseEnter={e => {
                         setHoveredDay(day)
-                        if (expandTimer.current) clearTimeout(expandTimer.current)
+                        if (expandTimer.current)  clearTimeout(expandTimer.current)
+                        if (loadingTimer.current) clearTimeout(loadingTimer.current)
                         const el = e.currentTarget
-                        expandTimer.current = setTimeout(() => {
+                        loadingTimer.current = setTimeout(() => setLoadingDay(day), 500)
+                        expandTimer.current  = setTimeout(() => {
+                          setLoadingDay(null)
                           const r = el.getBoundingClientRect()
                           setDayExpand({ day, rect: { top: r.top, left: r.left, width: r.width, height: r.height }, phase: 'start' })
-                        }, 3000)
+                        }, 2000)
                       }}
                       onMouseLeave={() => {
                         setHoveredDay(null)
-                        if (expandTimer.current) { clearTimeout(expandTimer.current); expandTimer.current = null }
+                        setLoadingDay(null)
+                        if (expandTimer.current)  { clearTimeout(expandTimer.current);  expandTimer.current  = null }
+                        if (loadingTimer.current) { clearTimeout(loadingTimer.current); loadingTimer.current = null }
                       }}
                       style={{
                         width:'100%', height:'100%', borderRadius:'10px',
@@ -582,7 +589,29 @@ export default function CalendarView() {
                         cursor:'pointer', fontSize:'0.875rem', fontWeight: isToday || isSel ? 600 : 400,
                         display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'3px',
                         boxShadow: isToday ? '0 0 15px var(--primary-glow)' : 'none', transition:'all 0.15s',
+                        position:'relative',
                       }}>
+                      {/* Anillo de carga */}
+                      {loadingDay === day && (
+                        <svg
+                          viewBox="0 0 36 36"
+                          style={{ position:'absolute', inset:0, width:'100%', height:'100%', pointerEvents:'none' }}
+                        >
+                          <circle
+                            cx="18" cy="18" r="15"
+                            fill="none"
+                            stroke={isToday ? 'rgba(255,255,255,0.6)' : 'var(--primary)'}
+                            strokeWidth="1.8"
+                            strokeDasharray="94.2"
+                            strokeLinecap="round"
+                            style={{
+                              transformOrigin:'center',
+                              transform:'rotate(-90deg)',
+                              animation:'fillRing 1.5s linear forwards',
+                            }}
+                          />
+                        </svg>
+                      )}
                       {day}
                       {evs.length > 0 && (
                         <div style={{ display:'flex', gap:'2px' }}>

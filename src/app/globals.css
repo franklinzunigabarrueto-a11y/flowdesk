@@ -86,6 +86,11 @@ html, body {
   50% { transform: translateY(-8px); }
 }
 
+@keyframes fillRing {
+  from { stroke-dashoffset: 107; }
+  to   { stroke-dashoffset: 0; }
+}
+
 .animate-fade-in { animation: fadeIn 0.4s ease forwards; }
 .animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
 .animate-float { animation: float 3s ease-in-out infinite; }
