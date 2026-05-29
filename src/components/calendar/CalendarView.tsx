@@ -590,14 +590,12 @@ export default function CalendarView() {
                         {day}
                       </span>
 
-                      {/* Ovals de prioridad */}
-                      {dayTaskList.length > 0 && (
-                        <div style={{ display:'flex', gap:'3px', justifyContent:'center' }}>
-                          {highT.length > 0 && <TaskBadge tasks={highT} priority="high" isToday={isToday} />}
-                          {medT.length  > 0 && <TaskBadge tasks={medT}  priority="medium" isToday={isToday} />}
-                          {lowT.length  > 0 && <TaskBadge tasks={lowT}  priority="low" isToday={isToday} />}
-                        </div>
-                      )}
+                      {/* Ovals de prioridad — siempre visibles */}
+                      <div style={{ display:'flex', gap:'3px', justifyContent:'center' }}>
+                        <TaskBadge tasks={highT} priority="high" isToday={isToday} />
+                        <TaskBadge tasks={medT}  priority="medium" isToday={isToday} />
+                        <TaskBadge tasks={lowT}  priority="low" isToday={isToday} />
+                      </div>
                     </div>
                   </div>
                 )
@@ -1260,7 +1258,7 @@ function TaskBadge({ tasks, priority, isToday }: { tasks: Task[]; priority: 'hig
         onMouseEnter={e => {
           e.stopPropagation()
           const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-          timer.current = setTimeout(() => setPos({ x: r.left, y: r.bottom + 6 }), 1500)
+          timer.current = setTimeout(() => setPos({ x: r.left, y: r.bottom + 6 }), 500)
         }}
         onMouseLeave={() => { if (timer.current) clearTimeout(timer.current); setPos(null) }}
         style={{
