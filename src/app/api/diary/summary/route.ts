@@ -73,26 +73,27 @@ export async function GET(request: Request) {
   // ── 4. Día pasado sin caché o hoy después de las 18:00 → generar y guardar ──
   const { start: utcStart, end: utcEnd } = getUTCRangeForLocalDate(date, timezone)
 
+  // Usar la sesión del usuario para los datos (mismo patrón que diary/route.ts)
   const [
     { data: diaryEntries },
     { data: events },
     { data: tasks },
   ] = await Promise.all([
-    adminDb.from('diary_entries')
+    supabase.from('diary_entries')
       .select('content, created_at, audio_url, image_url')
       .eq('user_id', user.id)
       .eq('entry_date', date)
       .neq('content', '__processing__')
       .order('created_at', { ascending: true })
       .limit(25),
-    adminDb.from('calendar_events')
+    supabase.from('calendar_events')
       .select('title, start_time, created_at')
       .eq('user_id', user.id)
       .is('whatsapp_message_id', null)
       .gte('start_time', utcStart)
       .lt('start_time', utcEnd)
       .order('start_time', { ascending: true }),
-    adminDb.from('tasks')
+    supabase.from('tasks')
       .select('title, priority, due_date, created_at')
       .eq('user_id', user.id)
       .is('whatsapp_message_id', null)
