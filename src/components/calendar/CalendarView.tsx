@@ -283,7 +283,8 @@ export default function CalendarView() {
 
   function eventsForDay(d: Date) { return events.filter(e => dateStr(new Date(e.start)) === dateStr(d)) }
 
-  const [hoveredDay, setHoveredDay] = useState<number | null>(null)
+  const [hoveredDay,   setHoveredDay]   = useState<number | null>(null)
+  const [expandedDay,  setExpandedDay]  = useState<number | null>(null)
 
   /* Month-specific */
   const firstDay    = (new Date(year, month, 1).getDay() + 6) % 7
@@ -524,7 +525,7 @@ export default function CalendarView() {
               ))}
             </div>
             {/* Grid */}
-            <div style={{ flex:1, minHeight:0, display:'grid', gridTemplateColumns:'repeat(7,1fr)', gridAutoRows:'1fr', padding:'0 1.5rem 1rem', gap:0 }}>
+            <div style={{ flex:1, minHeight:0, display:'grid', gridTemplateColumns:'repeat(7,1fr)', gridAutoRows:'minmax(72px, auto)', padding:'0 1.5rem 1rem', gap:0 }}>
               {Array.from({ length: firstDay }).map((_, i) => (
                 <div key={`e${i}`} style={{ background: isWkendCol(i) ? 'rgba(239,68,68,0.05)' : 'transparent' }} />
               ))}
@@ -535,31 +536,63 @@ export default function CalendarView() {
                 const evs = eventsForDay(new Date(year, month, day))
                 const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear()
                 const isSel = day === selDay
+                const VISIBLE = 4
+                const isExp = expandedDay === day
+                const shown = isExp ? evs : evs.slice(0, VISIBLE)
+                const hiddenCount = evs.length - VISIBLE
                 return (
                   <div key={day} style={{ padding:'2px', background: wknd ? 'rgba(239,68,68,0.05)' : 'transparent' }}>
-                    <button
+                    <div
                       onClick={() => setSelDay(day)}
                       onDoubleClick={() => openQuickCreate(`${year}-${pad(month+1)}-${pad(day)}`, '08:00')}
                       onMouseEnter={() => setHoveredDay(day)}
                       onMouseLeave={() => setHoveredDay(null)}
                       style={{
-                      width:'100%', height:'100%', borderRadius:'10px',
-                      border: isSel && !isToday ? '1px solid var(--primary)' : hoveredDay === day && !isToday ? '1px dashed rgba(249,115,22,0.4)' : '1px solid transparent',
-                      background: isToday ? 'var(--primary)' : isSel ? 'rgba(249,115,22,0.12)' : hoveredDay === day ? 'rgba(249,115,22,0.06)' : 'transparent',
-                      color: isToday ? 'white' : wknd && !isSel ? 'rgba(239,68,68,0.75)' : 'var(--foreground)',
-                      cursor:'pointer', fontSize:'0.875rem', fontWeight: isToday || isSel ? 600 : 400,
-                      display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'3px',
-                      boxShadow: isToday ? '0 0 15px var(--primary-glow)' : 'none', transition:'all 0.15s',
-                    }}>
-                      {day}
-                      {evs.length > 0 && (
-                        <div style={{ display:'flex', gap:'2px' }}>
-                          {evs.slice(0, 3).map((ev, idx) => (
-                            <div key={idx} style={{ width:'4px', height:'4px', borderRadius:'50%', background: isToday ? 'rgba(255,255,255,0.8)' : (ev.color || COLORS[idx % COLORS.length]) }} />
-                          ))}
+                        width:'100%', minHeight:'100%', borderRadius:'10px',
+                        border: isSel && !isToday ? '1px solid var(--primary)' : hoveredDay === day && !isToday ? '1px dashed rgba(249,115,22,0.4)' : '1px solid transparent',
+                        background: isToday ? 'var(--primary)' : isSel ? 'rgba(249,115,22,0.12)' : hoveredDay === day ? 'rgba(249,115,22,0.06)' : 'transparent',
+                        color: isToday ? 'white' : wknd && !isSel ? 'rgba(239,68,68,0.75)' : 'var(--foreground)',
+                        cursor:'pointer', boxShadow: isToday ? '0 0 15px var(--primary-glow)' : 'none',
+                        transition:'all 0.15s', display:'flex', flexDirection:'column',
+                        alignItems:'stretch', padding:'4px 3px', gap:'2px', boxSizing:'border-box',
+                      }}
+                    >
+                      {/* Número del día */}
+                      <span style={{
+                        fontSize:'0.8rem', fontWeight: isToday || isSel ? 700 : 400,
+                        textAlign:'center', lineHeight:1.6, flexShrink:0,
+                      }}>
+                        {day}
+                      </span>
+
+                      {/* Pills de eventos */}
+                      {shown.map((ev) => (
+                        <div key={ev.id} style={{
+                          fontSize:'0.6rem', lineHeight:1.3, padding:'1px 4px',
+                          borderRadius:'3px', flexShrink:0,
+                          borderLeft:`2px solid ${isToday ? 'rgba(255,255,255,0.8)' : (ev.color || '#7c5cfc')}`,
+                          background: isToday ? 'rgba(255,255,255,0.18)' : `${(ev.color || '#7c5cfc')}22`,
+                          color: isToday ? 'rgba(255,255,255,0.95)' : 'var(--foreground)',
+                          overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+                        }}>
+                          {ev.title}
+                        </div>
+                      ))}
+
+                      {/* Ver más / Ver menos */}
+                      {hiddenCount > 0 && (
+                        <div
+                          onClick={e => { e.stopPropagation(); setExpandedDay(isExp ? null : day) }}
+                          style={{
+                            fontSize:'0.6rem', fontWeight:700, padding:'1px 4px',
+                            cursor:'pointer', flexShrink:0,
+                            color: isToday ? 'rgba(255,255,255,0.75)' : 'var(--text-muted)',
+                          }}
+                        >
+                          {isExp ? 'Ver menos' : `+ Ver más (${hiddenCount})`}
                         </div>
                       )}
-                    </button>
+                    </div>
                   </div>
                 )
               })}
