@@ -151,9 +151,25 @@ create policy "Project tasks: full access via project" on public.project_tasks
     exists (select 1 from public.projects where id = project_id and user_id = auth.uid())
   );
 
+-- Tabla para evitar recordatorios duplicados
+create table if not exists public.reminder_logs (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references public.users(id) on delete cascade,
+  entity_type text not null check (entity_type in ('event', 'task')),
+  entity_id   uuid not null,
+  sent_at     timestamptz not null default now(),
+  constraint reminder_logs_unique unique (entity_type, entity_id)
+);
+
+alter table public.reminder_logs enable row level security;
+
+create policy "Users can view own reminder logs" on public.reminder_logs
+  for select using (auth.uid() = user_id);
+
 -- Índices para rendimiento
 create index if not exists idx_tasks_user_id on public.tasks(user_id);
 create index if not exists idx_tasks_status on public.tasks(user_id, status);
 create index if not exists idx_diary_user_date on public.diary_entries(user_id, entry_date);
 create index if not exists idx_events_user_time on public.calendar_events(user_id, start_time);
 create index if not exists idx_users_whatsapp on public.users(whatsapp_number);
+create index if not exists idx_reminder_logs_entity on public.reminder_logs(entity_type, entity_id);
