@@ -109,6 +109,48 @@ create policy "Summaries: full access own data" on public.diary_summaries
 create policy "Service role can write summaries" on public.diary_summaries
   for all with check (true);
 
+-- Tabla de proyectos
+create table if not exists public.projects (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references public.users(id) on delete cascade,
+  name        text not null,
+  description text,
+  start_date  date,
+  end_date    date,
+  status      text not null default 'active' check (status in ('active','completed','paused')),
+  created_at  timestamptz default now(),
+  updated_at  timestamptz default now()
+);
+
+-- Tabla de partidas/sub-partidas del proyecto
+create table if not exists public.project_tasks (
+  id            uuid primary key default gen_random_uuid(),
+  project_id    uuid not null references public.projects(id) on delete cascade,
+  parent_id     uuid references public.project_tasks(id) on delete cascade,
+  name          text not null,
+  wbs           text,
+  outline_level integer not null default 1,
+  start_date    date,
+  end_date      date,
+  progress      integer not null default 0 check (progress >= 0 and progress <= 100),
+  status        text not null default 'pending' check (status in ('pending','in_progress','completed')),
+  is_summary    boolean not null default false,
+  sort_order    integer not null default 0,
+  created_at    timestamptz default now(),
+  updated_at    timestamptz default now()
+);
+
+alter table public.projects      enable row level security;
+alter table public.project_tasks enable row level security;
+
+create policy "Projects: full access own data" on public.projects
+  for all using (auth.uid() = user_id);
+
+create policy "Project tasks: full access via project" on public.project_tasks
+  for all using (
+    exists (select 1 from public.projects where id = project_id and user_id = auth.uid())
+  );
+
 -- Índices para rendimiento
 create index if not exists idx_tasks_user_id on public.tasks(user_id);
 create index if not exists idx_tasks_status on public.tasks(user_id, status);

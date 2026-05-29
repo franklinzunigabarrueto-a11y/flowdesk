@@ -56,6 +56,35 @@ export interface ActivityItem {
   }
 }
 
+export interface Project {
+  id: string
+  user_id: string
+  name: string
+  description?: string
+  start_date?: string | null
+  end_date?: string | null
+  status: 'active' | 'completed' | 'paused'
+  created_at: string
+  updated_at: string
+}
+
+export interface ProjectTask {
+  id: string
+  project_id: string
+  parent_id?: string | null
+  name: string
+  wbs?: string | null
+  outline_level: number
+  start_date?: string | null
+  end_date?: string | null
+  progress: number
+  status: 'pending' | 'in_progress' | 'completed'
+  is_summary: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
 export interface UserProfile {
   id: string
   email: string
