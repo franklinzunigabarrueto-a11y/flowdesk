@@ -312,10 +312,12 @@ export async function POST(request: Request) {
         textContent = (await transcribeAudio(audioData, mimeType)).substring(0, MAX_TEXT_LENGTH)
       } catch (e: any) {
         console.error('Error transcribiendo audio — status:', e?.status, 'message:', e?.message, 'full:', JSON.stringify(e))
+        await supabase.from('diary_entries').update({ content: '[audio-error]' }).eq('whatsapp_message_id', messageId).eq('user_id', user.id)
         try { await sendWhatsAppMessage(from, 'No pude procesar el audio. Intenta enviarlo de nuevo o escríbeme el mensaje. 😅') } catch (e2) {}
         return NextResponse.json({ ok: true })
       }
       if (!textContent.trim()) {
+        await supabase.from('diary_entries').update({ content: '[audio-vacío]' }).eq('whatsapp_message_id', messageId).eq('user_id', user.id)
         try { await sendWhatsAppMessage(from, 'No logré entender el audio. ¿Puedes repetirlo o escribirme el mensaje?') } catch (e) {}
         return NextResponse.json({ ok: true })
       }
@@ -351,6 +353,11 @@ export async function POST(request: Request) {
         } catch (e) {
           console.error('Error analizando imagen para pregunta:', e)
         }
+        // Mark entry as real so subsequent messages don't think it's the first today
+        await supabase.from('diary_entries')
+          .update({ content: '[foto]', image_url: imageUrl || null })
+          .eq('whatsapp_message_id', messageId)
+          .eq('user_id', user.id)
         if (imageUrl) {
           await supabase.from('users').update({
             pending_intent: [{ type: 'pending_image', needs_info: ['description'], data: { image_url: imageUrl, confidence: 1 } }]
