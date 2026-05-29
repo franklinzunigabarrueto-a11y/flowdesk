@@ -524,9 +524,9 @@ export default function CalendarView() {
               ))}
             </div>
             {/* Grid */}
-            <div style={{ flex:1, minHeight:0, display:'grid', gridTemplateColumns:'repeat(7,1fr)', gridAutoRows:'1fr', padding:'0 1.5rem 1rem', gap:0 }}>
+            <div style={{ flex:1, minHeight:0, display:'grid', gridTemplateColumns:'repeat(7,1fr)', gridAutoRows:'1fr', padding:'0 1.5rem 1rem', gap:0, borderLeft:'1px solid var(--border)', borderTop:'1px solid var(--border)' }}>
               {Array.from({ length: firstDay }).map((_, i) => (
-                <div key={`e${i}`} style={{ background: isWkendCol(i) ? 'rgba(239,68,68,0.05)' : 'transparent' }} />
+                <div key={`e${i}`} style={{ background: isWkendCol(i) ? 'rgba(239,68,68,0.05)' : 'transparent', borderRight:'1px solid var(--border)', borderBottom:'1px solid var(--border)' }} />
               ))}
               {Array.from({ length: daysInMonth }).map((_, i) => {
                 const day = i + 1
@@ -536,7 +536,7 @@ export default function CalendarView() {
                 const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear()
                 const isSel = day === selDay
                 return (
-                  <div key={day} style={{ padding:'2px', background: wknd ? 'rgba(239,68,68,0.05)' : 'transparent' }}>
+                  <div key={day} style={{ padding:'2px', background: wknd ? 'rgba(239,68,68,0.05)' : 'transparent', borderRight:'1px solid var(--border)', borderBottom:'1px solid var(--border)' }}>
                     <button
                       onClick={() => setSelDay(day)}
                       onDoubleClick={() => openQuickCreate(`${year}-${pad(month+1)}-${pad(day)}`, '08:00')}
