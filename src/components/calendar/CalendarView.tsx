@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import useSWR from 'swr'
 import { ChevronLeft, ChevronRight, Plus, Clock, Trash2, X, Pencil, Check, Paperclip, Circle, CheckCircle } from 'lucide-react'
 import { CalendarEvent } from '@/types'
@@ -285,6 +286,26 @@ export default function CalendarView() {
 
   const [hoveredDay, setHoveredDay] = useState<number | null>(null)
 
+  /* Day expand animation */
+  type DayExpand = { day: number; rect: { top: number; left: number; width: number; height: number }; phase: 'start' | 'open' }
+  const [dayExpand, setDayExpand] = useState<DayExpand | null>(null)
+  const expandTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (dayExpand?.phase !== 'start') return
+    const id1 = requestAnimationFrame(() => requestAnimationFrame(() =>
+      setDayExpand(s => s ? { ...s, phase: 'open' } : null)
+    ))
+    return () => cancelAnimationFrame(id1)
+  }, [dayExpand?.phase])
+
+  useEffect(() => {
+    if (!dayExpand) return
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') setDayExpand(null) }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [dayExpand])
+
   /* Month-specific */
   const firstDay    = (new Date(year, month, 1).getDay() + 6) % 7
   const daysInMonth = new Date(year, month + 1, 0).getDate()
@@ -540,8 +561,19 @@ export default function CalendarView() {
                     <button
                       onClick={() => setSelDay(day)}
                       onDoubleClick={() => openQuickCreate(`${year}-${pad(month+1)}-${pad(day)}`, '08:00')}
-                      onMouseEnter={() => setHoveredDay(day)}
-                      onMouseLeave={() => setHoveredDay(null)}
+                      onMouseEnter={e => {
+                        setHoveredDay(day)
+                        if (expandTimer.current) clearTimeout(expandTimer.current)
+                        const el = e.currentTarget
+                        expandTimer.current = setTimeout(() => {
+                          const r = el.getBoundingClientRect()
+                          setDayExpand({ day, rect: { top: r.top, left: r.left, width: r.width, height: r.height }, phase: 'start' })
+                        }, 3000)
+                      }}
+                      onMouseLeave={() => {
+                        setHoveredDay(null)
+                        if (expandTimer.current) { clearTimeout(expandTimer.current); expandTimer.current = null }
+                      }}
                       style={{
                         width:'100%', height:'100%', borderRadius:'10px',
                         border: isSel && !isToday ? '1px solid var(--primary)' : hoveredDay === day && !isToday ? '1px dashed rgba(249,115,22,0.4)' : '1px solid transparent',
@@ -566,6 +598,101 @@ export default function CalendarView() {
             </div>
           </div>
           </div>
+
+          {/* ── Day expand portal ── */}
+          {dayExpand && createPortal((() => {
+            const { rect, phase, day: expDay } = dayExpand
+            const isOpen = phase === 'open'
+            const expEvents = eventsForDay(new Date(year, month, expDay))
+            const expDate   = new Date(year, month, expDay)
+            const dayLabel  = `${DAY_FULL[(expDate.getDay() + 6) % 7]}, ${expDay} de ${MONTHS[month]}`
+            return (
+              <>
+                {/* Blur backdrop */}
+                <div
+                  onClick={() => setDayExpand(null)}
+                  style={{
+                    position:'fixed', inset:0, zIndex:9998,
+                    background: isOpen ? 'rgba(0,0,0,0.45)' : 'rgba(0,0,0,0)',
+                    backdropFilter: isOpen ? 'blur(7px)' : 'blur(0px)',
+                    transition:'background 0.4s, backdrop-filter 0.4s',
+                  }}
+                />
+                {/* Expanding card */}
+                <div style={{
+                  position:'fixed', zIndex:9999,
+                  overflow:'hidden',
+                  background:'var(--surface)',
+                  border:'1px solid var(--border)',
+                  boxShadow: isOpen ? '0 24px 64px rgba(0,0,0,0.35)' : 'none',
+                  transition:'all 0.45s cubic-bezier(0.34,1.56,0.64,1)',
+                  ...(isOpen ? {
+                    top:'50%', left:'50%',
+                    transform:'translate(-50%,-50%)',
+                    width:'420px', maxHeight:'75vh',
+                    borderRadius:'20px',
+                  } : {
+                    top: rect.top, left: rect.left,
+                    width: rect.width, height: rect.height,
+                    borderRadius:'10px',
+                    transform:'none',
+                  }),
+                }}>
+                  {/* Header */}
+                  <div style={{
+                    padding:'1rem 1.25rem 0.75rem',
+                    borderBottom:'1px solid var(--border)',
+                    background:'var(--surface-hover)',
+                    display:'flex', alignItems:'center', justifyContent:'space-between',
+                  }}>
+                    <div>
+                      <p style={{ fontSize:'0.95rem', fontWeight:700, margin:0 }}>{dayLabel}</p>
+                      <p style={{ fontSize:'0.78rem', color:'var(--text-muted)', margin:'2px 0 0' }}>
+                        {expEvents.length} evento{expEvents.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setDayExpand(null)}
+                      style={{ background:'transparent', border:'none', cursor:'pointer', color:'var(--text-muted)', padding:'4px', borderRadius:'6px', display:'flex' }}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  {/* Events list */}
+                  <div style={{ padding:'0.875rem', overflowY:'auto', maxHeight:'calc(75vh - 72px)', display:'flex', flexDirection:'column', gap:'8px' }}>
+                    {expEvents.length === 0 ? (
+                      <p style={{ fontSize:'0.85rem', color:'var(--text-muted)', textAlign:'center', padding:'2rem 0' }}>
+                        Sin eventos este día
+                      </p>
+                    ) : expEvents.map(ev => {
+                      const evStart = new Date(ev.start)
+                      const evEnd   = ev.end ? new Date(ev.end) : null
+                      const timeStr = evStart.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' })
+                        + (evEnd ? ` → ${evEnd.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' })}` : '')
+                      return (
+                        <div key={ev.id} style={{
+                          padding:'0.65rem 0.875rem',
+                          borderRadius:'10px',
+                          borderLeft:`3px solid ${ev.color || 'var(--primary)'}`,
+                          background:`${ev.color || '#f97316'}14`,
+                          display:'flex', flexDirection:'column', gap:'3px',
+                        }}>
+                          <p style={{ fontSize:'0.875rem', fontWeight:600, margin:0, color:'var(--foreground)' }}>{ev.title}</p>
+                          <p style={{ fontSize:'0.75rem', color:'var(--text-muted)', margin:0, display:'flex', alignItems:'center', gap:'4px' }}>
+                            <Clock size={11} /> {timeStr}
+                          </p>
+                          {ev.description && (
+                            <p style={{ fontSize:'0.75rem', color:'var(--text-muted)', margin:0 }}>{ev.description}</p>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </>
+            )
+          })(), document.body)}
 
           {/* Events panel */}
           <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'20px', overflow:'hidden', display:'flex', flexDirection:'column', minHeight:0 }}>
