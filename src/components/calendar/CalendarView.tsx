@@ -626,9 +626,9 @@ export default function CalendarView() {
             >
               <defs>
                 <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%"   stopColor="#f97316" stopOpacity="0" />
-                  <stop offset="60%"  stopColor="#f97316" stopOpacity="0.5" />
-                  <stop offset="100%" stopColor="#f97316" stopOpacity="0.9" />
+                  <stop offset="0%"   stopColor="#94a3b8" stopOpacity="0" />
+                  <stop offset="60%"  stopColor="#94a3b8" stopOpacity="0.5" />
+                  <stop offset="100%" stopColor="#94a3b8" stopOpacity="0.9" />
                 </linearGradient>
               </defs>
               <circle
