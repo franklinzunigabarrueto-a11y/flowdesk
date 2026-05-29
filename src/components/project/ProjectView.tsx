@@ -152,9 +152,9 @@ export default function ProjectView() {
   const children = (id: string) => tasks.filter(t => t.parent_id === id).sort((a, b) => a.sort_order - b.sort_order)
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto', height: '100%', overflowY: 'auto', boxSizing: 'border-box' }}>
+    <div style={{ padding: '1.5rem 2rem', height: '100%', overflowY: 'auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Proyectos</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '2px' }}>
@@ -178,7 +178,7 @@ export default function ProjectView() {
       {showNewProject && (
         <div style={{
           background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: '16px', padding: '1.25rem', marginBottom: '1.5rem',
+          borderRadius: '16px', padding: '1.25rem', flexShrink: 0,
           display: 'flex', flexDirection: 'column', gap: '10px',
         }}>
           <p style={{ fontWeight: 600, fontSize: '0.9rem', margin: 0 }}>Nuevo proyecto</p>
@@ -207,115 +207,110 @@ export default function ProjectView() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '1.5rem', alignItems: 'start' }}>
-        {/* Projects list */}
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', overflow: 'hidden' }}>
-          <div style={{ padding: '0.875rem 1rem', borderBottom: '1px solid var(--border)', background: 'var(--surface-hover)' }}>
-            <p style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
-              Mis proyectos
-            </p>
-          </div>
-          {projects.length === 0 ? (
-            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              <FolderOpen size={32} style={{ margin: '0 auto 0.75rem', opacity: 0.3 }} />
-              Sin proyectos aún
-            </div>
-          ) : projects.map(p => (
+      {/* Project tabs */}
+      {projects.length > 0 && (
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', flexShrink: 0 }}>
+          {projects.map(p => (
             <div
               key={p.id}
-              onClick={() => setSelectedId(p.id)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '10px',
-                padding: '10px 12px', cursor: 'pointer',
-                background: selectedId === p.id ? 'rgba(249,115,22,0.08)' : 'transparent',
-                borderLeft: selectedId === p.id ? '3px solid var(--primary)' : '3px solid transparent',
-                transition: 'all 0.15s',
-              }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
             >
-              {selectedId === p.id
-                ? <FolderOpen size={16} color="var(--primary)" style={{ flexShrink: 0 }} />
-                : <Folder size={16} color="var(--text-muted)" style={{ flexShrink: 0 }} />
-              }
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: '0.875rem', fontWeight: selectedId === p.id ? 600 : 400, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: selectedId === p.id ? 'var(--foreground)' : 'var(--text-muted)' }}>
-                  {p.name}
-                </p>
-              </div>
               <button
-                onClick={e => { e.stopPropagation(); deleteProject(p.id) }}
-                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', display: 'flex', opacity: 0.5, flexShrink: 0 }}
+                onClick={() => setSelectedId(p.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '7px',
+                  padding: '7px 14px', borderRadius: '10px', cursor: 'pointer',
+                  border: selectedId === p.id ? '1.5px solid var(--primary)' : '1.5px solid var(--border)',
+                  background: selectedId === p.id ? 'rgba(249,115,22,0.08)' : 'var(--surface)',
+                  color: selectedId === p.id ? 'var(--primary)' : 'var(--text-muted)',
+                  fontWeight: selectedId === p.id ? 700 : 500,
+                  fontSize: '0.85rem', transition: 'all 0.15s',
+                }}
               >
-                <Trash2 size={13} />
+                {selectedId === p.id
+                  ? <FolderOpen size={14} />
+                  : <Folder size={14} />
+                }
+                {p.name}
+              </button>
+              <button
+                onClick={() => deleteProject(p.id)}
+                title="Eliminar proyecto"
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', display: 'flex', opacity: 0.4 }}
+              >
+                <Trash2 size={12} />
               </button>
             </div>
           ))}
         </div>
+      )}
 
-        {/* Tasks panel */}
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', overflow: 'hidden' }}>
-          {!selectedProject ? (
-            <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <Folder size={48} style={{ margin: '0 auto 1rem', opacity: 0.2 }} />
-              <p style={{ fontSize: '0.95rem' }}>Selecciona un proyecto para ver sus partidas</p>
-            </div>
-          ) : (
-            <>
-              {/* Toolbar */}
-              <div style={{ padding: '0.875rem 1.25rem', borderBottom: '1px solid var(--border)', background: 'var(--surface-hover)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0 }}>{selectedProject.name}</p>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>
-                    {tasks.length} partida{tasks.length !== 1 ? 's' : ''}
-                  </p>
-                </div>
-                <button
-                  onClick={() => addTask(null, 1)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px', borderRadius: '8px', background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)', color: 'var(--primary)', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}
-                >
-                  <Plus size={14} /> Partida
-                </button>
-                <button
-                  onClick={() => fileRef.current?.click()}
-                  disabled={importing}
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px', borderRadius: '8px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#3b82f6', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}
-                >
-                  <Upload size={14} /> {importing ? 'Importando...' : 'MS Project XML'}
-                </button>
-                <input ref={fileRef} type="file" accept=".xml" style={{ display: 'none' }} onChange={importXML} />
+      {/* Tasks panel — full width */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', overflow: 'hidden', flex: 1 }}>
+        {!selectedProject ? (
+          <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <Folder size={48} style={{ margin: '0 auto 1rem', opacity: 0.2 }} />
+            <p style={{ fontSize: '0.95rem' }}>
+              {projects.length === 0 ? 'Crea un proyecto para comenzar' : 'Selecciona un proyecto para ver sus partidas'}
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Toolbar */}
+            <div style={{ padding: '0.875rem 1.25rem', borderBottom: '1px solid var(--border)', background: 'var(--surface-hover)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0 }}>{selectedProject.name}</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                  {tasks.length} partida{tasks.length !== 1 ? 's' : ''}
+                </p>
               </div>
+              <button
+                onClick={() => addTask(null, 1)}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px', borderRadius: '8px', background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)', color: 'var(--primary)', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}
+              >
+                <Plus size={14} /> Partida
+              </button>
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={importing}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px', borderRadius: '8px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#3b82f6', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}
+              >
+                <Upload size={14} /> {importing ? 'Importando...' : 'MS Project XML'}
+              </button>
+              <input ref={fileRef} type="file" accept=".xml" style={{ display: 'none' }} onChange={importXML} />
+            </div>
 
-              {importError && (
-                <div style={{ padding: '0.75rem 1.25rem', background: 'rgba(239,68,68,0.07)', borderBottom: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <X size={14} /> {importError}
-                </div>
-              )}
+            {importError && (
+              <div style={{ padding: '0.75rem 1.25rem', background: 'rgba(239,68,68,0.07)', borderBottom: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <X size={14} /> {importError}
+              </div>
+            )}
 
-              {/* Task tree */}
-              {tasks.length === 0 ? (
-                <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                  <p>Sin partidas aún.</p>
-                  <p style={{ fontSize: '0.82rem', marginTop: '4px' }}>Agrega partidas manualmente o importa desde MS Project (XML).</p>
-                </div>
-              ) : (
-                <div style={{ padding: '0.5rem 0' }}>
-                  <TaskHeader />
-                  {roots.map(task => (
-                    <TaskRow
-                      key={task.id}
-                      task={task}
-                      children={children(task.id)}
-                      allChildren={children}
-                      onUpdate={updateTask}
-                      onDelete={deleteTask}
-                      onAddChild={id => addTask(id, task.outline_level + 1)}
-                      depth={0}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </div>
+            {/* Task tree */}
+            {tasks.length === 0 ? (
+              <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                <p>Sin partidas aún.</p>
+                <p style={{ fontSize: '0.82rem', marginTop: '4px' }}>Agrega partidas manualmente o importa desde MS Project (XML).</p>
+              </div>
+            ) : (
+              <div style={{ padding: '0.5rem 0' }}>
+                <TaskHeader />
+                {roots.map(task => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    children={children(task.id)}
+                    allChildren={children}
+                    onUpdate={updateTask}
+                    onDelete={deleteTask}
+                    onAddChild={id => addTask(id, task.outline_level + 1)}
+                    depth={0}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   )
