@@ -1,10 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { createPortal } from 'react-dom'
 import useSWR from 'swr'
 import { ChevronLeft, ChevronRight, Plus, Clock, Trash2, X, Pencil, Check, Paperclip, Circle, CheckCircle } from 'lucide-react'
-import { CalendarEvent, Task } from '@/types'
+import { CalendarEvent } from '@/types'
 import DatePicker from '@/components/ui/DatePicker'
 import { createClient } from '@/lib/supabase'
 
@@ -141,15 +140,6 @@ export default function CalendarView() {
   })()
   const { data: eventsData, mutate } = useSWR(swrKey, fetcher)
   const events: CalendarEvent[] = eventsData?.events ?? []
-
-  const tasksKey = view === 'month' ? `/api/tasks?month=${month + 1}&year=${year}` : null
-  const { data: tasksData } = useSWR(tasksKey, fetcher)
-  const monthTasks: Task[] = tasksData?.tasks ?? []
-
-  function tasksForDay(d: Date) {
-    const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-    return monthTasks.filter(t => t.due_date === ds && t.status !== 'completed')
-  }
 
   /* Supabase Realtime — refetch instantly when calendar_events changes (e.g. from Google Calendar webhook) */
   useEffect(() => {
@@ -534,69 +524,42 @@ export default function CalendarView() {
               ))}
             </div>
             {/* Grid */}
-            <div style={{
-              flex:1, minHeight:0, display:'grid', gridTemplateColumns:'repeat(7,1fr)',
-              gridAutoRows:'minmax(72px, auto)', padding:'0 1.5rem 1rem', gap:0,
-              borderLeft:'1px solid var(--border)', borderTop:'1px solid var(--border)',
-            }}>
+            <div style={{ flex:1, minHeight:0, display:'grid', gridTemplateColumns:'repeat(7,1fr)', gridAutoRows:'1fr', padding:'0 1.5rem 1rem', gap:0 }}>
               {Array.from({ length: firstDay }).map((_, i) => (
-                <div key={`e${i}`} style={{
-                  background: isWkendCol(i) ? 'rgba(239,68,68,0.03)' : 'transparent',
-                  borderRight:'1px solid var(--border)', borderBottom:'1px solid var(--border)',
-                }} />
+                <div key={`e${i}`} style={{ background: isWkendCol(i) ? 'rgba(239,68,68,0.05)' : 'transparent' }} />
               ))}
               {Array.from({ length: daysInMonth }).map((_, i) => {
                 const day = i + 1
                 const col = (firstDay + i) % 7
                 const wknd = isWkendCol(col)
-                const dayDate = new Date(year, month, day)
-                const dayTaskList = tasksForDay(dayDate)
-                const highT   = dayTaskList.filter(t => t.priority === 'high')
-                const medT    = dayTaskList.filter(t => t.priority === 'medium')
-                const lowT    = dayTaskList.filter(t => t.priority === 'low')
+                const evs = eventsForDay(new Date(year, month, day))
                 const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear()
-                const isSel   = day === selDay
+                const isSel = day === selDay
                 return (
-                  <div
-                    key={day}
-                    style={{
-                      borderRight:'1px solid var(--border)', borderBottom:'1px solid var(--border)',
-                      background: wknd ? 'rgba(239,68,68,0.03)' : 'transparent',
-                      padding:'2px',
-                    }}
-                  >
-                    <div
+                  <div key={day} style={{ padding:'2px', background: wknd ? 'rgba(239,68,68,0.05)' : 'transparent' }}>
+                    <button
                       onClick={() => setSelDay(day)}
                       onDoubleClick={() => openQuickCreate(`${year}-${pad(month+1)}-${pad(day)}`, '08:00')}
                       onMouseEnter={() => setHoveredDay(day)}
                       onMouseLeave={() => setHoveredDay(null)}
                       style={{
-                        width:'100%', height:'100%', borderRadius:'8px',
-                        background: isToday ? 'var(--primary)' : isSel ? 'rgba(249,115,22,0.1)' : hoveredDay === day ? 'rgba(249,115,22,0.05)' : 'transparent',
-                        outline: isSel && !isToday ? '1px solid var(--primary)' : 'none',
+                        width:'100%', height:'100%', borderRadius:'10px',
+                        border: isSel && !isToday ? '1px solid var(--primary)' : hoveredDay === day && !isToday ? '1px dashed rgba(249,115,22,0.4)' : '1px solid transparent',
+                        background: isToday ? 'var(--primary)' : isSel ? 'rgba(249,115,22,0.12)' : hoveredDay === day ? 'rgba(249,115,22,0.06)' : 'transparent',
                         color: isToday ? 'white' : wknd && !isSel ? 'rgba(239,68,68,0.75)' : 'var(--foreground)',
-                        cursor:'pointer', boxShadow: isToday ? '0 0 12px var(--primary-glow)' : 'none',
-                        transition:'background 0.15s',
-                        display:'flex', flexDirection:'column', alignItems:'center',
-                        justifyContent:'space-between', padding:'4px 3px 5px',
-                        gap:'4px', boxSizing:'border-box', minHeight:'70px',
-                      }}
-                    >
-                      {/* Número del día */}
-                      <span style={{
-                        fontSize:'0.8rem', fontWeight: isToday || isSel ? 700 : 400,
-                        lineHeight:1.5,
+                        cursor:'pointer', fontSize:'0.875rem', fontWeight: isToday || isSel ? 600 : 400,
+                        display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'3px',
+                        boxShadow: isToday ? '0 0 15px var(--primary-glow)' : 'none', transition:'all 0.15s',
                       }}>
-                        {day}
-                      </span>
-
-                      {/* Ovals de prioridad — siempre visibles */}
-                      <div style={{ display:'flex', gap:'3px', justifyContent:'center' }}>
-                        <TaskBadge tasks={highT} priority="high" isToday={isToday} />
-                        <TaskBadge tasks={medT}  priority="medium" isToday={isToday} />
-                        <TaskBadge tasks={lowT}  priority="low" isToday={isToday} />
-                      </div>
-                    </div>
+                      {day}
+                      {evs.length > 0 && (
+                        <div style={{ display:'flex', gap:'2px' }}>
+                          {evs.slice(0, 3).map((ev, idx) => (
+                            <div key={idx} style={{ width:'4px', height:'4px', borderRadius:'50%', background: isToday ? 'rgba(255,255,255,0.8)' : (ev.color || COLORS[idx % COLORS.length]) }} />
+                          ))}
+                        </div>
+                      )}
+                    </button>
                   </div>
                 )
               })}
@@ -1239,71 +1202,4 @@ function CalIcon({ size, style }: { size: number; style?: React.CSSProperties })
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} style={style}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
 }
 
-/* ─── Task priority badge with 1.5s hover tooltip ─── */
-const BADGE_CFG = {
-  high:   { bg: '#fee2e2', text: '#b91c1c', border: '#fca5a5', label: 'Urgente' },
-  medium: { bg: '#fef9c3', text: '#92400e', border: '#fde047', label: 'Media' },
-  low:    { bg: '#dcfce7', text: '#15803d', border: '#86efac', label: 'Simple' },
-} as const
-
-function TaskBadge({ tasks, priority, isToday }: { tasks: Task[]; priority: 'high' | 'medium' | 'low'; isToday: boolean }) {
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const cfg = BADGE_CFG[priority]
-
-  return (
-    <>
-      <div
-        onClick={e => e.stopPropagation()}
-        onMouseEnter={e => {
-          e.stopPropagation()
-          const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-          timer.current = setTimeout(() => setPos({ x: r.left, y: r.bottom + 6 }), 500)
-        }}
-        onMouseLeave={() => { if (timer.current) clearTimeout(timer.current); setPos(null) }}
-        style={{
-          width:'20px', height:'20px', borderRadius:'50%', flexShrink:0,
-          background: isToday ? 'rgba(255,255,255,0.25)' : cfg.bg,
-          border:`1px solid ${isToday ? 'rgba(255,255,255,0.55)' : cfg.border}`,
-          display:'flex', alignItems:'center', justifyContent:'center',
-          fontSize:'0.58rem', fontWeight:700,
-          color: isToday ? 'white' : cfg.text,
-          cursor:'default', userSelect:'none',
-        }}
-      >
-        {tasks.length}
-      </div>
-
-      {pos && createPortal(
-        <div
-          onMouseLeave={() => { if (timer.current) clearTimeout(timer.current); setPos(null) }}
-          style={{
-            position:'fixed',
-            left: Math.min(pos.x, window.innerWidth - 224),
-            top: pos.y,
-            zIndex:9999,
-            background:'var(--surface)',
-            border:`1px solid var(--border)`,
-            borderLeft:`3px solid ${cfg.border}`,
-            borderRadius:'8px',
-            padding:'8px 12px',
-            boxShadow:'0 4px 16px rgba(0,0,0,0.15)',
-            maxWidth:'210px',
-            pointerEvents:'none',
-          }}
-        >
-          <p style={{ fontSize:'0.65rem', fontWeight:700, color:cfg.text, margin:'0 0 5px', textTransform:'uppercase', letterSpacing:'0.05em' }}>
-            {cfg.label} · {tasks.length}
-          </p>
-          {tasks.map(t => (
-            <p key={t.id} style={{ fontSize:'0.76rem', color:'var(--foreground)', margin:'2px 0', lineHeight:1.4 }}>
-              • {t.title}
-            </p>
-          ))}
-        </div>,
-        document.body
-      )}
-    </>
-  )
-}
 
