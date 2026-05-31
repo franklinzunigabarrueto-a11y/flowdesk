@@ -446,31 +446,9 @@ export default function CalendarView() {
       )}
 
       {/* Header */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'1rem', flexWrap:'wrap', gap:'1rem', flexShrink:0 }}>
-        <div>
-          <h1 style={{ fontSize:'1.5rem', fontWeight:700, margin:0 }}>Calendario</h1>
-          <p style={{ color:'var(--text-muted)', fontSize:'0.875rem', margin:'2px 0 0' }}>Gestiona tus eventos y agenda de obra</p>
-        </div>
-        <div style={{ display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap' }}>
-          {/* View toggle */}
-          <div style={{ display:'flex', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'10px', padding:'3px' }}>
-            {(['month','week','day'] as View[]).map(v => (
-              <button key={v} onClick={() => setView(v)} style={{
-                padding:'6px 16px', borderRadius:'7px', border:'none',
-                background: view === v ? 'var(--primary)' : 'transparent',
-                color: view === v ? 'white' : 'var(--text-muted)',
-                cursor:'pointer', fontSize:'0.82rem', fontWeight: view === v ? 600 : 400,
-                transition:'all 0.15s',
-                boxShadow: view === v ? '0 0 12px rgba(249,115,22,0.3)' : 'none',
-              }}>
-                {v === 'month' ? 'Mes' : v === 'week' ? 'Semana' : 'Día'}
-              </button>
-            ))}
-          </div>
-          <button onClick={() => setShowForm(f => !f)} style={{ display:'flex', alignItems:'center', gap:'8px', padding:'10px 18px', borderRadius:'10px', background:'var(--primary)', border:'none', color:'white', cursor:'pointer', fontSize:'0.875rem', fontWeight:600, boxShadow:'0 0 15px var(--primary-glow)' }}>
-            <Plus size={16} /> Nuevo evento
-          </button>
-        </div>
+      <div style={{ marginBottom:'1rem', flexShrink:0 }}>
+        <h1 style={{ fontSize:'1.5rem', fontWeight:700, margin:0 }}>Calendario</h1>
+        <p style={{ color:'var(--text-muted)', fontSize:'0.875rem', margin:'2px 0 0' }}>Gestiona tus eventos y agenda de obra</p>
       </div>
 
       {/* Create form */}
@@ -505,7 +483,7 @@ export default function CalendarView() {
 
       {/* Nav bar — semana / día */}
       {view !== 'month' && (
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', marginBottom:'1rem', flexShrink:0 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'1rem', flexShrink:0, flexWrap:'wrap', gap:'8px' }}>
           <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
             <button onClick={goBack} style={{ width:'32px', height:'32px', borderRadius:'8px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--foreground)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
               <ChevronLeft size={16} />
@@ -518,6 +496,25 @@ export default function CalendarView() {
               Hoy
             </button>
           </div>
+          <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+            <div style={{ display:'flex', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'10px', padding:'3px' }}>
+              {(['month','week','day'] as View[]).map(v => (
+                <button key={v} onClick={() => setView(v)} style={{
+                  padding:'6px 16px', borderRadius:'7px', border:'none',
+                  background: view === v ? 'var(--primary)' : 'transparent',
+                  color: view === v ? 'white' : 'var(--text-muted)',
+                  cursor:'pointer', fontSize:'0.82rem', fontWeight: view === v ? 600 : 400,
+                  transition:'all 0.15s',
+                  boxShadow: view === v ? '0 0 12px rgba(249,115,22,0.3)' : 'none',
+                }}>
+                  {v === 'month' ? 'Mes' : v === 'week' ? 'Semana' : 'Día'}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setShowForm(f => !f)} style={{ display:'flex', alignItems:'center', gap:'8px', padding:'10px 18px', borderRadius:'10px', background:'var(--primary)', border:'none', color:'white', cursor:'pointer', fontSize:'0.875rem', fontWeight:600, boxShadow:'0 0 15px var(--primary-glow)' }}>
+              <Plus size={16} /> Nuevo evento
+            </button>
+          </div>
         </div>
       )}
 
@@ -526,7 +523,7 @@ export default function CalendarView() {
         <div style={{ flex:1, minHeight:0, display:'grid', gridTemplateColumns:'1fr 320px', gap:'1.5rem', overflow:'hidden' }}>
           <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem', minHeight:0, overflow:'hidden' }}>
             {/* Nav bar — dentro de la columna del calendario */}
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0, flexWrap:'wrap', gap:'8px' }}>
               <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
                 <button onClick={goBack} style={{ width:'32px', height:'32px', borderRadius:'8px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--foreground)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
                   <ChevronLeft size={16} />
@@ -537,6 +534,25 @@ export default function CalendarView() {
                 </button>
                 <button onClick={goToday} style={{ padding:'6px 14px', borderRadius:'8px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text-muted)', cursor:'pointer', fontSize:'0.8rem', fontWeight:500 }}>
                   Hoy
+                </button>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+                <div style={{ display:'flex', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'10px', padding:'3px' }}>
+                  {(['month','week','day'] as View[]).map(v => (
+                    <button key={v} onClick={() => setView(v)} style={{
+                      padding:'6px 16px', borderRadius:'7px', border:'none',
+                      background: view === v ? 'var(--primary)' : 'transparent',
+                      color: view === v ? 'white' : 'var(--text-muted)',
+                      cursor:'pointer', fontSize:'0.82rem', fontWeight: view === v ? 600 : 400,
+                      transition:'all 0.15s',
+                      boxShadow: view === v ? '0 0 12px rgba(249,115,22,0.3)' : 'none',
+                    }}>
+                      {v === 'month' ? 'Mes' : v === 'week' ? 'Semana' : 'Día'}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => setShowForm(f => !f)} style={{ display:'flex', alignItems:'center', gap:'8px', padding:'10px 18px', borderRadius:'10px', background:'var(--primary)', border:'none', color:'white', cursor:'pointer', fontSize:'0.875rem', fontWeight:600, boxShadow:'0 0 15px var(--primary-glow)' }}>
+                  <Plus size={16} /> Nuevo evento
                 </button>
               </div>
             </div>
