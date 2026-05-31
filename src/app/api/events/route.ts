@@ -29,13 +29,7 @@ export async function GET(request: Request) {
   const rangeEnd   = searchParams.get('end')
 
   if (rangeStart && rangeEnd) {
-    query = query.gte('start_time', rangeStart).lte('start_time', rangeEnd + 'T23:59:59')
-  } else if (month && year) {
-    const start = `${year}-${String(month).padStart(2, '0')}-01`
-    const nextMonth = Number(month) === 12
-      ? `${Number(year) + 1}-01-01`
-      : `${year}-${String(Number(month) + 1).padStart(2, '0')}-01`
-    query = query.gte('start_time', start).lt('start_time', nextMonth)
+    query = query.gte('start_time', rangeStart).lte('start_time', rangeEnd)
   }
 
   const { data: dbEvents, error } = await query
@@ -49,6 +43,7 @@ export async function GET(request: Request) {
     description: e.description,
     color: e.color || '#f97316',
     image_url: e.image_url || null,
+    completed: e.completed ?? false,
   }))
 
   return NextResponse.json({ events })

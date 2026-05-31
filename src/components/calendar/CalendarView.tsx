@@ -127,17 +127,23 @@ export default function CalendarView() {
     return () => window.removeEventListener('keydown', h)
   }, [popupEvent])
 
-  /* SWR key */
+  /* SWR key — always send full ISO timestamps so the server uses UTC-aware range */
   const year = curDate.getFullYear()
   const month = curDate.getMonth()
   const swrKey = (() => {
-    if (view === 'month') return `/api/events?month=${month + 1}&year=${year}`
+    function dayStart(d: Date) { return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).toISOString() }
+    function dayEnd(d: Date)   { return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).toISOString() }
+    if (view === 'month') {
+      const s = new Date(year, month, 1, 0, 0, 0, 0)
+      const e = new Date(year, month + 1, 0, 23, 59, 59, 999)
+      return `/api/events?start=${s.toISOString()}&end=${e.toISOString()}`
+    }
     if (view === 'week') {
       const ws = weekStart(curDate), we = new Date(ws)
       we.setDate(ws.getDate() + 6)
-      return `/api/events?start=${dateStr(ws)}&end=${dateStr(we)}`
+      return `/api/events?start=${dayStart(ws)}&end=${dayEnd(we)}`
     }
-    return `/api/events?start=${dateStr(curDate)}&end=${dateStr(curDate)}`
+    return `/api/events?start=${dayStart(curDate)}&end=${dayEnd(curDate)}`
   })()
   const { data: eventsData, mutate } = useSWR(swrKey, fetcher)
   const events: CalendarEvent[] = eventsData?.events ?? []
