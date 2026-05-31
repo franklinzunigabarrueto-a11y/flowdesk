@@ -282,6 +282,12 @@ export default function CalendarView() {
     setShowQuickCreate(true)
   }
 
+  function openDragCreate(date: string, startTime: string, endTime: string) {
+    setNewEv({ title: '', date, time: snapTime15(startTime), endTime: snapTime15(endTime), description: '' })
+    setCreateImg(null)
+    setShowQuickCreate(true)
+  }
+
   function eventsForDay(d: Date) { return events.filter(e => dateStr(new Date(e.start)) === dateStr(d)) }
 
   const [hoveredDay, setHoveredDay] = useState<number | null>(null)
@@ -795,6 +801,7 @@ export default function CalendarView() {
             onResize={resizeEvent}
             onMove={resizeEvent}
             onDoubleClickCell={openQuickCreate}
+            onDragCreate={openDragCreate}
           />
         </div>
       )}
@@ -807,6 +814,7 @@ export default function CalendarView() {
             onResize={resizeEvent}
             onMove={resizeEvent}
             onDoubleClickCell={openQuickCreate}
+            onDragCreate={openDragCreate}
           />
         </div>
       )}
@@ -876,7 +884,7 @@ function TimeGrid({ children, noAxisHeader }: { children: React.ReactNode; noAxi
   )
 }
 
-function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize, onMove, compact, noHeader, onDoubleClickCell }: {
+function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize, onMove, compact, noHeader, onDoubleClickCell, onDragCreate }: {
   date: Date; events: CalendarEvent[]; today: Date
   onEventClick: (ev: CalendarEvent) => void
   onHeaderClick?: () => void
@@ -885,6 +893,7 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
   compact?: boolean
   noHeader?: boolean
   onDoubleClickCell?: (dateStr: string, time: string) => void
+  onDragCreate?: (date: string, startTime: string, endTime: string) => void
 }) {
   const isToday = isSameDay(date, today)
   const wknd = isWeekend(date)
@@ -892,10 +901,12 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
   const nowTop = isToday ? (now.getHours() - START_H + now.getMinutes() / 60) * ROW_H : -1
   const [hoverY,      setHoverY]      = useState<number | null>(null)
   const [hoverPlusBtn,setHoverPlusBtn] = useState(false)
+  const [dragCreate,  setDragCreate]  = useState<{ startY: number; currentY: number } | null>(null)
+  const dragCreateRef = useRef<{ startY: number; currentY: number } | null>(null)
   const cellsRef = useRef<HTMLDivElement>(null)
 
   const SLOT_H = ROW_H / 4 // 15-min slot height
-  const snapY  = hoverY !== null ? Math.floor(hoverY / SLOT_H) * SLOT_H : null
+  const snapY  = hoverY !== null && !dragCreate ? Math.floor(hoverY / SLOT_H) * SLOT_H : null
 
   return (
     <div data-date={dateStr(date)} style={{ flex:1, minWidth: compact ? '80px' : '120px', display:'flex', flexDirection:'column', borderRight:'1px solid var(--border)' }}>
@@ -926,8 +937,44 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
           setHoverY(e.clientY - rect.top)
         }) : undefined}
         onMouseLeave={onDoubleClickCell ? () => setHoverY(null) : undefined}
+        onMouseDown={onDragCreate ? (e => {
+          if ((e.target as HTMLElement).closest('[data-event]')) return
+          if ((e.target as HTMLElement).closest('button')) return
+          e.preventDefault()
+          isDragActive = true
+          setHoverY(null)
+          const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+          const rawY = Math.max(0, e.clientY - rect.top)
+          const snappedY = Math.floor(rawY / SLOT_H) * SLOT_H
+          const init = { startY: snappedY, currentY: snappedY }
+          setDragCreate(init)
+          dragCreateRef.current = init
+
+          function onMove(ev: MouseEvent) {
+            const curY = Math.max(0, ev.clientY - rect.top)
+            const snapped = Math.round(curY / SLOT_H) * SLOT_H
+            const updated = { startY: init.startY, currentY: snapped }
+            dragCreateRef.current = updated
+            setDragCreate({ ...updated })
+          }
+          function onUp() {
+            isDragActive = false
+            window.removeEventListener('mousemove', onMove)
+            window.removeEventListener('mouseup', onUp)
+            const dc = dragCreateRef.current
+            if (!dc) return
+            const topY = Math.min(dc.startY, dc.currentY)
+            const botY = Math.max(dc.startY, dc.currentY)
+            setDragCreate(null)
+            dragCreateRef.current = null
+            if (botY - topY < SLOT_H) return
+            onDragCreate!(dateStr(date), pxToTimeStr(topY), pxToTimeStr(botY))
+          }
+          window.addEventListener('mousemove', onMove)
+          window.addEventListener('mouseup', onUp)
+        }) : undefined}
         ref={cellsRef}
-        style={{ flex:1, position:'relative', background: wknd ? 'rgba(239,68,68,0.02)' : 'transparent' }}>
+        style={{ flex:1, position:'relative', background: wknd ? 'rgba(239,68,68,0.02)' : 'transparent', cursor: onDragCreate ? 'crosshair' : 'default' }}>
         {/* Hour lines */}
         {HOURS.map(h => (
           <div key={h} style={{ position:'absolute', left:0, right:0, top:`${(h - START_H) * ROW_H}px`, height:`${ROW_H}px`, borderBottom:'1px solid var(--border)', boxSizing:'border-box' }} />
@@ -956,6 +1003,30 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
         )}
         {/* Events */}
         {events.map(ev => <EventBlock key={ev.id} event={ev} onClick={() => onEventClick(ev)} onResize={onResize} onMove={onMove} />)}
+        {/* Drag-to-create preview */}
+        {dragCreate && (() => {
+          const topY = Math.min(dragCreate.startY, dragCreate.currentY)
+          const botY = Math.max(dragCreate.startY, dragCreate.currentY)
+          const h = Math.max(botY - topY, SLOT_H)
+          return (
+            <div style={{
+              position:'absolute', left:'3px', right:'3px',
+              top:`${topY}px`, height:`${h}px`,
+              background:'rgba(249,115,22,0.12)',
+              border:'2px dashed var(--primary)',
+              borderRadius:'6px',
+              zIndex:20,
+              pointerEvents:'none',
+              display:'flex', alignItems:'center', justifyContent:'center',
+            }}>
+              {h >= SLOT_H * 2 && (
+                <span style={{ fontSize:'0.68rem', fontWeight:700, color:'var(--primary)', letterSpacing:'0.01em' }}>
+                  {pxToTimeStr(topY)} – {pxToTimeStr(botY)}
+                </span>
+              )}
+            </div>
+          )
+        })()}
       </div>
     </div>
   )
@@ -1221,12 +1292,13 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent }: {
 }
 
 /* ─── Week view ─── */
-function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onMove, onDoubleClickCell }: {
+function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onMove, onDoubleClickCell, onDragCreate }: {
   events: CalendarEvent[]; today: Date; days: Date[]
   onEventClick: (ev: CalendarEvent) => void; onDayClick: (d: Date) => void
   onResize: (id: string, start: string, end: string) => void
   onMove:   (id: string, start: string, end: string) => void
   onDoubleClickCell?: (date: string, time: string) => void
+  onDragCreate?: (date: string, startTime: string, endTime: string) => void
 }) {
   return (
     <>
@@ -1263,6 +1335,7 @@ function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onM
             compact
             noHeader
             onDoubleClickCell={onDoubleClickCell}
+            onDragCreate={onDragCreate}
           />
         ))}
       </TimeGrid>
@@ -1271,12 +1344,13 @@ function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onM
 }
 
 /* ─── Day view ─── */
-function DayView({ events, today, date, onEventClick, onResize, onMove, onDoubleClickCell }: {
+function DayView({ events, today, date, onEventClick, onResize, onMove, onDoubleClickCell, onDragCreate }: {
   events: CalendarEvent[]; today: Date; date: Date
   onEventClick: (ev: CalendarEvent) => void
   onResize: (id: string, start: string, end: string) => void
   onMove:   (id: string, start: string, end: string) => void
   onDoubleClickCell?: (date: string, time: string) => void
+  onDragCreate?: (date: string, startTime: string, endTime: string) => void
 }) {
   const isToday = isSameDay(date, today)
   const wknd    = isWeekend(date)
@@ -1295,7 +1369,7 @@ function DayView({ events, today, date, onEventClick, onResize, onMove, onDouble
         </div>
       </div>
       <TimeGrid noAxisHeader>
-        <DayColumn date={date} today={today} events={events} onEventClick={onEventClick} onResize={onResize} onMove={onMove} noHeader onDoubleClickCell={onDoubleClickCell} />
+        <DayColumn date={date} today={today} events={events} onEventClick={onEventClick} onResize={onResize} onMove={onMove} noHeader onDoubleClickCell={onDoubleClickCell} onDragCreate={onDragCreate} />
       </TimeGrid>
     </>
   )
