@@ -52,6 +52,7 @@ create table if not exists public.calendar_events (
   color text default '#7c5cfc',
   google_event_id text,
   whatsapp_message_id text,
+  reminder_minutes integer default 60,
   created_at timestamptz default now()
 );
 

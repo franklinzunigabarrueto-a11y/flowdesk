@@ -16,6 +16,7 @@ export type IntentItem = {
     content?: string
     task_keywords?: string[]
     calendar_name?: string | null
+    reminder_minutes?: number
     confidence: number
   }
 }
@@ -69,6 +70,8 @@ CAMPOS REQUERIDOS:
 
 EMOJIS EN TÍTULOS: Siempre agrega un emoji relevante al inicio del "title" de tasks y events. Elige según el contexto. Ejemplos: 🔧 reparación/mantención, 🪟 ventana/vidrio, 🚛 camión/transporte, 🏗️ obra/faena, 📋 reunión/junta, 📞 llamada, 🧱 hormigón/moldaje, 💡 inspección eléctrica, 🪛 instalación, 🌧️ lluvia/techado, 📐 replanteo/topografía, 📦 pedido/material, 💰 pago/factura, 🩺 médico/salud, ✈️ viaje, 🍽️ almuerzo/comida.
 
+RECORDATORIOS: Si el usuario menciona una anticipación distinta a la hora de crear o editar un evento (ej: "recuérdame 30 minutos antes", "avísame con 2 horas de anticipación", "recuérdame media hora antes"), incluye "reminder_minutes" en data con el valor en minutos entero (ej: 30, 120, 15). Si no menciona anticipación, NO incluyas el campo (el sistema usará 60 minutos por defecto).
+
 REGLAS CRÍTICAS DE FECHA:
 - "hoy" = la fecha actual proporcionada, sin excepción. NUNCA mover al día siguiente.
 - "mañana" = fecha actual + 1 día.
@@ -98,6 +101,7 @@ Responde SOLO con JSON válido:
         "content": "contenido para diario",
         "task_keywords": ["palabras clave"],
         "calendar_name": null,
+        "reminder_minutes": 30,
         "confidence": 0.9
       }
     }

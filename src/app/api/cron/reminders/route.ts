@@ -25,19 +25,26 @@ export async function GET(request: Request) {
   const now = new Date()
   const results = { eventsSent: 0, tasksSent: 0, errors: 0 }
 
-  // ── 1. Recordatorios de eventos (1 hora antes de start_time) ──────────────
-  // Ventana de 10 min centrada en 60 min → el cron de 5 min lo pesca una vez
-  const windowStart = new Date(now.getTime() + 55 * 60_000).toISOString()
-  const windowEnd   = new Date(now.getTime() + 65 * 60_000).toISOString()
+  // ── 1. Recordatorios de eventos ────────────────────────────────────────────
+  // Busca eventos en las próximas 24 h y filtra los que deben dispararse ahora
+  // según su reminder_minutes individual (default 60). Ventana de ±5 min.
+  const upcoming = new Date(now.getTime() + 24 * 60 * 60_000).toISOString()
 
   const { data: events } = await db
     .from('calendar_events')
-    .select('id, title, start_time, user_id')
-    .gte('start_time', windowStart)
-    .lt('start_time', windowEnd)
+    .select('id, title, start_time, reminder_minutes, user_id')
+    .gte('start_time', now.toISOString())
+    .lte('start_time', upcoming)
 
-  if (events?.length) {
-    const eventIds = events.map(e => e.id)
+  const toRemind = (events ?? []).filter(ev => {
+    const mins = ev.reminder_minutes ?? 60
+    const reminderAt = new Date(ev.start_time).getTime() - mins * 60_000
+    return reminderAt >= now.getTime() - 5 * 60_000
+        && reminderAt <= now.getTime() + 5 * 60_000
+  })
+
+  if (toRemind.length) {
+    const eventIds = toRemind.map(e => e.id)
 
     const { data: alreadySent } = await db
       .from('reminder_logs')
@@ -47,8 +54,7 @@ export async function GET(request: Request) {
 
     const sentSet = new Set(alreadySent?.map(r => r.entity_id) ?? [])
 
-    // Batch-fetch users
-    const userIds = [...new Set(events.map(e => e.user_id))]
+    const userIds = [...new Set(toRemind.map(e => e.user_id))]
     const { data: users } = await db
       .from('users')
       .select('id, whatsapp_number, timezone')
@@ -57,18 +63,22 @@ export async function GET(request: Request) {
 
     const userMap = new Map(users?.map(u => [u.id, u]) ?? [])
 
-    for (const event of events) {
+    for (const event of toRemind) {
       if (sentSet.has(event.id)) continue
       const user = userMap.get(event.user_id)
       if (!user?.whatsapp_number) continue
 
-      const tz  = user.timezone || 'America/Santiago'
+      const tz   = user.timezone || 'America/Santiago'
       const hora = localTime(event.start_time, tz)
+      const mins = event.reminder_minutes ?? 60
+      const label = mins >= 60 && mins % 60 === 0
+        ? `${mins / 60} hora${mins / 60 > 1 ? 's' : ''}`
+        : `${mins} minuto${mins > 1 ? 's' : ''}`
 
       try {
         await sendWhatsAppMessage(
           user.whatsapp_number,
-          `🔔 *Recordatorio:* "${event.title}" comienza en 1 hora, a las *${hora} hrs*.`
+          `🔔 *Recordatorio:* "${event.title}" comienza en ${label}, a las *${hora} hrs*.`
         )
         await db.from('reminder_logs').insert({
           user_id: event.user_id,

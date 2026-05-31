@@ -141,6 +141,7 @@ async function processItem(
         google_event_id: googleEventId,
         whatsapp_message_id: messageId,
         image_url: imageUrl || null,
+        reminder_minutes: item.data.reminder_minutes ?? 60,
       })
       if (eventError) console.error('[event insert error]', eventError)
       break
@@ -162,6 +163,7 @@ async function processItem(
       if (item.data.event_start) updates.start_time = item.data.event_start
       if (item.data.event_end) updates.end_time = item.data.event_end
       if (imageUrl) updates.image_url = imageUrl
+      if (item.data.reminder_minutes !== undefined) updates.reminder_minutes = item.data.reminder_minutes
 
       await supabase.from('calendar_events').update(updates).eq('id', lastEvent.id)
 
