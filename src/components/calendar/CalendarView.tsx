@@ -1383,14 +1383,19 @@ function DayView({ events, today, date, onEventClick, onResize, onMove, onDouble
 
 /* ─── TimePicker ─── */
 function TimePicker({ value, onChange, label }: { value: string; onChange: (v: string) => void; label?: string }) {
-  const [open, setOpen] = useState(false)
-  const ref     = useRef<HTMLDivElement>(null)
-  const listRef = useRef<HTMLDivElement>(null)
+  const [open,     setOpen]     = useState(false)
+  const [inputVal, setInputVal] = useState(value)
+  const ref      = useRef<HTMLDivElement>(null)
+  const listRef  = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
+  useEffect(() => { setInputVal(value) }, [value])
+
+  // 5-min slots for the dropdown
   const slots = useMemo(() => {
     const list: string[] = []
     for (let h = 0; h < 24; h++)
-      for (let m = 0; m < 60; m += 15)
+      for (let m = 0; m < 60; m += 5)
         list.push(`${pad(h)}:${pad(m)}`)
     return list
   }, [])
@@ -1402,34 +1407,78 @@ function TimePicker({ value, onChange, label }: { value: string; onChange: (v: s
     return () => document.removeEventListener('mousedown', h)
   }, [open])
 
+  // Scroll dropdown to nearest slot on open
   useEffect(() => {
-    if (open && value && listRef.current) {
-      const idx = slots.indexOf(value)
+    if (open && listRef.current) {
+      const nearest = slots.find(s => s >= (value || '00:00')) ?? slots[0]
+      const idx = slots.indexOf(nearest)
       if (idx >= 0) listRef.current.scrollTop = Math.max(0, idx * 34 - 68)
     }
   }, [open, value, slots])
 
+  function commit(raw: string) {
+    const clean = raw.trim()
+    // Accept "HH:MM" or "HHMM"
+    const m1 = clean.match(/^(\d{1,2}):(\d{2})$/)
+    const m2 = clean.match(/^(\d{3,4})$/)
+    let h = -1, m = -1
+    if (m1) { h = parseInt(m1[1]); m = parseInt(m1[2]) }
+    else if (m2) {
+      const s = m2[1].padStart(4, '0')
+      h = parseInt(s.slice(0, 2)); m = parseInt(s.slice(2))
+    }
+    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+      const formatted = `${pad(h)}:${pad(m)}`
+      setInputVal(formatted)
+      onChange(formatted)
+    } else {
+      setInputVal(value) // revert
+    }
+  }
+
   return (
     <div ref={ref} style={{ position:'relative' }}>
-      <button type="button" onClick={() => setOpen(o => !o)} style={{
-        width:'100%', display:'flex', alignItems:'center', gap:'6px',
-        padding:'10px 14px', borderRadius:'10px',
+      <div style={{
+        display:'flex', alignItems:'center', gap:'4px',
+        padding:'8px 10px', borderRadius:'10px',
         background:'var(--background)', border:`1px solid ${open ? 'var(--primary)' : 'var(--border)'}`,
-        color: value ? 'var(--foreground)' : 'var(--text-muted)',
-        cursor:'pointer', fontSize:'0.875rem', transition:'border-color 0.15s',
+        transition:'border-color 0.15s',
       }}>
         <Clock size={13} style={{ color:'var(--text-muted)', flexShrink:0 }} />
-        <span style={{ flex:1, textAlign:'left', fontWeight: value ? 500 : 400 }}>{value || (label ?? '--:--')}</span>
-      </button>
+        <input
+          ref={inputRef}
+          type="text"
+          value={inputVal}
+          placeholder={label ?? '--:--'}
+          onChange={e => setInputVal(e.target.value)}
+          onBlur={e => commit(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { commit((e.target as HTMLInputElement).value); setOpen(false) } if (e.key === 'Escape') { setInputVal(value); setOpen(false) } }}
+          style={{
+            flex:1, border:'none', background:'transparent', outline:'none',
+            color: inputVal ? 'var(--foreground)' : 'var(--text-muted)',
+            fontSize:'0.875rem', fontWeight: inputVal ? 500 : 400,
+            minWidth:0, width:'44px',
+          }}
+        />
+        <button
+          type="button"
+          onMouseDown={e => { e.preventDefault(); setOpen(o => !o) }}
+          style={{ background:'none', border:'none', cursor:'pointer', padding:'0 2px', color:'var(--text-muted)', display:'flex', alignItems:'center' }}
+        >
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+            <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+      </div>
       {open && (
         <div ref={listRef} style={{
           position:'absolute', top:'calc(100% + 4px)', left:0, zIndex:200,
           background:'var(--surface)', border:'1px solid var(--border)',
           borderRadius:'12px', boxShadow:'0 8px 28px rgba(0,0,0,0.13)',
-          maxHeight:'210px', overflowY:'auto', minWidth:'120px', padding:'4px',
+          maxHeight:'210px', overflowY:'auto', minWidth:'110px', padding:'4px',
         }}>
           {slots.map(slot => (
-            <button type="button" key={slot} onClick={() => { onChange(slot); setOpen(false) }} style={{
+            <button type="button" key={slot} onClick={() => { onChange(slot); setInputVal(slot); setOpen(false) }} style={{
               display:'block', width:'100%', padding:'6px 12px',
               textAlign:'left', borderRadius:'7px', border:'none',
               cursor:'pointer', fontSize:'0.82rem',
