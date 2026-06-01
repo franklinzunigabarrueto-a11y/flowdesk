@@ -108,7 +108,9 @@ export default function CalendarView() {
   const [createDrag,setCreateDrag]= useState(false)
 
   // Context menu (right-click)
-  type CtxMenu = { x: number; y: number; date: string; time: string }
+  type CtxMenu =
+    | { kind: 'cell';  x: number; y: number; date: string; time: string }
+    | { kind: 'event'; x: number; y: number; event: CalendarEvent }
   const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null)
 
   // Quick task
@@ -291,7 +293,11 @@ export default function CalendarView() {
   }
 
   function openContextMenu(date: string, time: string, x: number, y: number) {
-    setCtxMenu({ x, y, date, time })
+    setCtxMenu({ kind: 'cell', x, y, date, time })
+  }
+
+  function openEventContextMenu(event: CalendarEvent, x: number, y: number) {
+    setCtxMenu({ kind: 'event', x, y, event })
   }
 
   async function createTask(e: React.FormEvent) {
@@ -499,30 +505,17 @@ export default function CalendarView() {
           position:'fixed', left: ctxMenu.x, top: ctxMenu.y, zIndex:9000,
           background:'var(--surface)', border:'1px solid var(--border)',
           borderRadius:'12px', boxShadow:'0 8px 32px rgba(0,0,0,0.18)',
-          padding:'6px', minWidth:'170px', animation:'fadeIn 0.1s ease',
+          padding:'6px', minWidth:'180px', animation:'fadeIn 0.1s ease',
         }}>
-          <button onClick={() => { setCtxMenu(null); openQuickCreate(ctxMenu.date, ctxMenu.time) }} style={{
-            display:'flex', alignItems:'center', gap:'10px', width:'100%',
-            padding:'9px 14px', borderRadius:'8px', border:'none', background:'transparent',
-            cursor:'pointer', fontSize:'0.85rem', fontWeight:500, color:'var(--foreground)',
-            textAlign:'left',
-          }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-hover)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-          >
-            <span style={{ fontSize:'1rem' }}>📅</span> Crear Evento
-          </button>
-          <button onClick={() => { setCtxMenu(null); setNewTask(t => ({ ...t, date: ctxMenu.date })); setShowQuickTask(true) }} style={{
-            display:'flex', alignItems:'center', gap:'10px', width:'100%',
-            padding:'9px 14px', borderRadius:'8px', border:'none', background:'transparent',
-            cursor:'pointer', fontSize:'0.85rem', fontWeight:500, color:'var(--foreground)',
-            textAlign:'left',
-          }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-hover)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-          >
-            <span style={{ fontSize:'1rem' }}>✅</span> Crear Tarea
-          </button>
+          {ctxMenu.kind === 'cell' ? <>
+            <CtxBtn icon="📅" label="Crear Evento" onClick={() => { setCtxMenu(null); openQuickCreate(ctxMenu.date, ctxMenu.time) }} />
+            <CtxBtn icon="✅" label="Crear Tarea"  onClick={() => { setCtxMenu(null); setNewTask(t => ({ ...t, date: ctxMenu.date })); setShowQuickTask(true) }} />
+          </> : <>
+            <CtxBtn icon="✏️" label="Editar Evento" onClick={() => { setCtxMenu(null); openEditPopup(ctxMenu.event) }} />
+            <CtxBtn icon="✅" label="Editar Tarea"  onClick={() => { setCtxMenu(null); setNewTask({ title: ctxMenu.event.title, date: dateStr(new Date(ctxMenu.event.start)), priority: 'medium' }); setShowQuickTask(true) }} />
+            <div style={{ height:'1px', background:'var(--border)', margin:'4px 6px' }} />
+            <CtxBtn icon="🗑️" label="Eliminar" danger onClick={() => { const ev = ctxMenu.event; setCtxMenu(null); fetch(`/api/events/${ev.id}`, { method:'DELETE' }).then(() => mutate()) }} />
+          </>}
         </div>,
         document.body
       )}
@@ -921,6 +914,7 @@ export default function CalendarView() {
             onDoubleClickCell={openQuickCreate}
             onDragCreate={openDragCreate}
             onCtxMenu={openContextMenu}
+            onCtxMenuEvent={openEventContextMenu}
           />
         </div>
       )}
@@ -935,6 +929,7 @@ export default function CalendarView() {
             onDoubleClickCell={openQuickCreate}
             onDragCreate={openDragCreate}
             onCtxMenu={openContextMenu}
+            onCtxMenuEvent={openEventContextMenu}
           />
         </div>
       )}
@@ -1004,7 +999,7 @@ function TimeGrid({ children, noAxisHeader }: { children: React.ReactNode; noAxi
   )
 }
 
-function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize, onMove, compact, noHeader, onDoubleClickCell, onDragCreate, onCtxMenu }: {
+function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize, onMove, compact, noHeader, onDoubleClickCell, onDragCreate, onCtxMenu, onCtxMenuEvent }: {
   date: Date; events: CalendarEvent[]; today: Date
   onEventClick: (ev: CalendarEvent) => void
   onHeaderClick?: () => void
@@ -1015,6 +1010,7 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
   onDoubleClickCell?: (dateStr: string, time: string) => void
   onDragCreate?: (date: string, startTime: string, endTime: string) => void
   onCtxMenu?: (date: string, time: string, x: number, y: number) => void
+  onCtxMenuEvent?: (ev: CalendarEvent, x: number, y: number) => void
 }) {
   const isToday = isSameDay(date, today)
   const wknd = isWeekend(date)
@@ -1124,7 +1120,7 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
           </div>
         )}
         {/* Events */}
-        {events.map(ev => <EventBlock key={ev.id} event={ev} onClick={() => onEventClick(ev)} onResize={onResize} onMove={onMove} />)}
+        {events.map(ev => <EventBlock key={ev.id} event={ev} onClick={() => onEventClick(ev)} onResize={onResize} onMove={onMove} onCtxMenuEvent={onCtxMenuEvent} />)}
         {/* Drag-to-create preview */}
         {dragCreate && (() => {
           const topY = Math.min(dragCreate.startY, dragCreate.currentY)
@@ -1154,10 +1150,11 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
   )
 }
 
-function EventBlock({ event, onClick, onResize, onMove: onMoveEvent }: {
+function EventBlock({ event, onClick, onResize, onMove: onMoveEvent, onCtxMenuEvent }: {
   event: CalendarEvent; onClick: () => void
   onResize?: (id: string, start: string, end: string) => void
   onMove?:   (id: string, start: string, end: string) => void
+  onCtxMenuEvent?: (ev: CalendarEvent, x: number, y: number) => void
 }) {
   const [liveTop,    setLiveTop]    = useState<number | null>(null)
   const [liveHeight, setLiveHeight] = useState<number | null>(null)
@@ -1348,7 +1345,9 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent }: {
       {/* Original block — hidden while ghost is active */}
       <div
         ref={blockRef}
+        data-event="1"
         onClick={() => { if (!didDrag.current) onClick() }}
+        onContextMenu={onCtxMenuEvent ? (e => { e.preventDefault(); e.stopPropagation(); onCtxMenuEvent(event, e.clientX, e.clientY) }) : undefined}
         style={{
           position:'absolute', left:'3px', right:'3px',
           top:`${top}px`, height:`${height}px`,
@@ -1414,7 +1413,7 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent }: {
 }
 
 /* ─── Week view ─── */
-function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onMove, onDoubleClickCell, onDragCreate, onCtxMenu }: {
+function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onMove, onDoubleClickCell, onDragCreate, onCtxMenu, onCtxMenuEvent }: {
   events: CalendarEvent[]; today: Date; days: Date[]
   onEventClick: (ev: CalendarEvent) => void; onDayClick: (d: Date) => void
   onResize: (id: string, start: string, end: string) => void
@@ -1422,6 +1421,7 @@ function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onM
   onDoubleClickCell?: (date: string, time: string) => void
   onDragCreate?: (date: string, startTime: string, endTime: string) => void
   onCtxMenu?: (date: string, time: string, x: number, y: number) => void
+  onCtxMenuEvent?: (ev: CalendarEvent, x: number, y: number) => void
 }) {
   return (
     <>
@@ -1460,6 +1460,7 @@ function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onM
             onDoubleClickCell={onDoubleClickCell}
             onDragCreate={onDragCreate}
             onCtxMenu={onCtxMenu}
+            onCtxMenuEvent={onCtxMenuEvent}
           />
         ))}
       </TimeGrid>
@@ -1468,7 +1469,7 @@ function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onM
 }
 
 /* ─── Day view ─── */
-function DayView({ events, today, date, onEventClick, onResize, onMove, onDoubleClickCell, onDragCreate, onCtxMenu }: {
+function DayView({ events, today, date, onEventClick, onResize, onMove, onDoubleClickCell, onDragCreate, onCtxMenu, onCtxMenuEvent }: {
   events: CalendarEvent[]; today: Date; date: Date
   onEventClick: (ev: CalendarEvent) => void
   onResize: (id: string, start: string, end: string) => void
@@ -1476,6 +1477,7 @@ function DayView({ events, today, date, onEventClick, onResize, onMove, onDouble
   onDoubleClickCell?: (date: string, time: string) => void
   onDragCreate?: (date: string, startTime: string, endTime: string) => void
   onCtxMenu?: (date: string, time: string, x: number, y: number) => void
+  onCtxMenuEvent?: (ev: CalendarEvent, x: number, y: number) => void
 }) {
   const isToday = isSameDay(date, today)
   const wknd    = isWeekend(date)
@@ -1494,9 +1496,28 @@ function DayView({ events, today, date, onEventClick, onResize, onMove, onDouble
         </div>
       </div>
       <TimeGrid noAxisHeader>
-        <DayColumn date={date} today={today} events={events} onEventClick={onEventClick} onResize={onResize} onMove={onMove} noHeader onDoubleClickCell={onDoubleClickCell} onDragCreate={onDragCreate} onCtxMenu={onCtxMenu} />
+        <DayColumn date={date} today={today} events={events} onEventClick={onEventClick} onResize={onResize} onMove={onMove} noHeader onDoubleClickCell={onDoubleClickCell} onDragCreate={onDragCreate} onCtxMenu={onCtxMenu} onCtxMenuEvent={onCtxMenuEvent} />
       </TimeGrid>
     </>
+  )
+}
+
+/* ─── CtxBtn ─── */
+function CtxBtn({ icon, label, onClick, danger }: { icon: string; label: string; onClick: () => void; danger?: boolean }) {
+  const [hov, setHov] = useState(false)
+  return (
+    <button onClick={onClick}
+      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{
+        display:'flex', alignItems:'center', gap:'10px', width:'100%',
+        padding:'9px 14px', borderRadius:'8px', border:'none', cursor:'pointer',
+        fontSize:'0.85rem', fontWeight:500, textAlign:'left',
+        background: hov ? (danger ? 'rgba(239,68,68,0.1)' : 'var(--surface-hover)') : 'transparent',
+        color: danger ? (hov ? '#ef4444' : 'var(--text-muted)') : 'var(--foreground)',
+        transition:'background 0.1s, color 0.1s',
+      }}>
+      <span style={{ fontSize:'1rem' }}>{icon}</span>{label}
+    </button>
   )
 }
 
