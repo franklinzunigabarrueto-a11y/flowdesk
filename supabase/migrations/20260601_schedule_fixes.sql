@@ -5,6 +5,8 @@
 
 -- 1. UNIQUE en assignments para que el upsert funcione
 ALTER TABLE public.schedule_assignments
+  DROP CONSTRAINT IF EXISTS assignments_task_resource_unique;
+ALTER TABLE public.schedule_assignments
   ADD CONSTRAINT assignments_task_resource_unique
   UNIQUE (task_id, resource_id);
 

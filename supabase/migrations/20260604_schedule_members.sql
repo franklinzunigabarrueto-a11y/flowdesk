@@ -16,13 +16,13 @@ CREATE TABLE IF NOT EXISTS public.schedule_project_members (
 
 ALTER TABLE public.schedule_project_members ENABLE ROW LEVEL SECURITY;
 
--- Solo el dueño del proyecto gestiona sus miembros
+DROP POLICY IF EXISTS "members_project_owner" ON public.schedule_project_members;
 CREATE POLICY "members_project_owner" ON public.schedule_project_members
   FOR ALL USING (
     EXISTS (SELECT 1 FROM public.projects WHERE id = project_id AND user_id = auth.uid())
   );
 
--- Los propios miembros pueden ver su membresía
+DROP POLICY IF EXISTS "members_self_read" ON public.schedule_project_members;
 CREATE POLICY "members_self_read" ON public.schedule_project_members
   FOR SELECT USING (auth.uid() = user_id);
 

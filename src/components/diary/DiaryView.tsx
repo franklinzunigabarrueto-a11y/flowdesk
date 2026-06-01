@@ -50,6 +50,7 @@ export default function DiaryView() {
   const suggestions: DiarySuggestion[] = summaryData?.suggestions ?? []
   const aiError: boolean  = summaryData?.aiError  ?? false
   const pending: boolean  = summaryData?.pending  ?? false
+  const paused: boolean   = summaryData?.paused   ?? false
 
   function changeDay(delta: number) {
     const [y, m, d] = selectedDate.split('-').map(Number)
@@ -219,6 +220,10 @@ export default function DiaryView() {
                 </p>
               ) : summaryLoading ? (
                 <SummaryLoadingState />
+              ) : paused ? (
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                  Resumen pausado temporalmente.
+                </p>
               ) : pending ? (
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
                   <Clock size={15} color="var(--text-muted)" style={{ marginTop: '2px', flexShrink: 0 }} />

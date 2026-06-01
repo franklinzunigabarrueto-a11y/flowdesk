@@ -247,6 +247,16 @@ export default function GanttView({ projectId }: Props) {
     )
   }
 
+  // ── Sync horizontal scroll header ↔ body ─────────────────────────────────
+
+  const headerScrollRef = useRef<HTMLDivElement>(null)
+  const bodyScrollRef   = useRef<HTMLDivElement>(null)
+
+  function onBodyScroll(e: React.UIEvent<HTMLDivElement>) {
+    if (headerScrollRef.current)
+      headerScrollRef.current.scrollLeft = (e.currentTarget).scrollLeft
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -254,7 +264,6 @@ export default function GanttView({ projectId }: Props) {
 
       {/* Toolbar */}
       <div style={{ padding: '6px 12px', borderBottom: '1px solid var(--border)', background: 'var(--surface-hover)', display: 'flex', gap: '12px', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
-        {/* Leyenda */}
         {Object.entries(STATUS_COLOR).map(([k, color]) => (
           <div key={k} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <div style={{ width: 10, height: 10, borderRadius: 2, background: color }} />
@@ -269,7 +278,6 @@ export default function GanttView({ projectId }: Props) {
           <div style={{ width: 10, height: 10, borderRadius: 2, background: 'rgba(148,163,184,0.25)', border: '1px dashed #94a3b8' }} />
           <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Línea base</span>
         </div>
-        {/* Zoom */}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '4px', alignItems: 'center' }}>
           <button onClick={() => setZoomIdx(i => Math.min(i + 1, ZOOM_LEVELS.length - 1))} disabled={zoomIdx === ZOOM_LEVELS.length - 1}
             style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', padding: '3px 6px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
@@ -285,14 +293,46 @@ export default function GanttView({ projectId }: Props) {
         </div>
       </div>
 
-      {/* Cuerpo */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'auto', display: 'flex', cursor: dragState ? (dragState.mode === 'move' ? 'grabbing' : 'ew-resize') : 'default' }}>
-
-        {/* Panel izquierdo — nombres */}
-        <div style={{ width: LEFT_W, flexShrink: 0, borderRight: '1px solid var(--border)', position: 'sticky', left: 0, background: 'var(--surface)', zIndex: 4 }}>
-          <div style={{ height: HEADER_H, borderBottom: '2px solid var(--border)', display: 'flex', alignItems: 'flex-end', padding: '0 10px 6px' }}>
-            <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Partida / Sub-partida</span>
+      {/* ── CABECERA FIJA (fuera del área de scroll vertical) ── */}
+      <div style={{ display: 'flex', flexShrink: 0, borderBottom: '2px solid var(--border)', background: 'var(--surface)' }}>
+        {/* Celda esquina */}
+        <div style={{ width: LEFT_W, flexShrink: 0, borderRight: '1px solid var(--border)', display: 'flex', alignItems: 'flex-end', padding: '0 10px 5px', background: 'var(--surface)' }}>
+          <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Partida / Sub-partida</span>
+        </div>
+        {/* Timeline headers — overflow hidden, sin scrollbar */}
+        <div ref={headerScrollRef} style={{ flex: 1, overflow: 'hidden', background: 'var(--surface)' }}>
+          <div style={{ width: Math.max(totalWidth, 600) }}>
+            {/* Meses */}
+            <div style={{ height: ROW_H, display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+              {monthHeaders.map((mh, i) => (
+                <div key={i} style={{ width: mh.days * DAY_PX, flexShrink: 0, display: 'flex', alignItems: 'center', paddingLeft: 6, borderRight: '1px solid var(--border)', fontSize: '0.7rem', fontWeight: 700, color: 'var(--foreground)', background: 'var(--surface)' }}>
+                  {mh.label}
+                </div>
+              ))}
+            </div>
+            {/* Días */}
+            <div style={{ height: ROW_H, display: 'flex', background: 'var(--surface)' }}>
+              {Array.from({ length: totalDays }).map((_, i) => {
+                const d = new Date(rangeStart); d.setDate(d.getDate() + i)
+                const isWE  = d.getDay() === 0 || d.getDay() === 6
+                const isTod = daysBetween(rangeStart, d) === daysBetween(rangeStart, today)
+                return (
+                  <div key={i} style={{ width: DAY_PX, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.52rem', fontWeight: isTod ? 700 : 400, color: isTod ? 'var(--primary)' : isWE ? 'rgba(239,68,68,0.5)' : 'var(--text-muted)', background: isWE ? 'rgba(239,68,68,0.06)' : 'var(--surface)', borderRight: '1px solid var(--border)' }}>
+                    {DAY_PX >= 16 ? d.getDate() : null}
+                  </div>
+                )
+              })}
+            </div>
           </div>
+        </div>
+      </div>
+
+      {/* ── CUERPO SCROLLEABLE (scroll vertical + horizontal) ── */}
+      <div ref={bodyScrollRef} onScroll={onBodyScroll}
+        style={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', position: 'relative', cursor: dragState ? (dragState.mode === 'move' ? 'grabbing' : 'ew-resize') : 'default' }}>
+
+        {/* Panel izquierdo — nombres (sticky left) */}
+        <div style={{ width: LEFT_W, flexShrink: 0, borderRight: '1px solid var(--border)', position: 'sticky', left: 0, background: 'var(--surface)', zIndex: 4 }}>
           {tasks.map(task => (
             <div key={task.id} style={{
               height: ROW_H, display: 'flex', alignItems: 'center',
@@ -313,29 +353,6 @@ export default function GanttView({ projectId }: Props) {
         {/* Panel derecho — timeline */}
         <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
           <div style={{ width: Math.max(totalWidth, 600), position: 'relative' }}>
-
-            {/* Cabecera meses */}
-            <div style={{ height: ROW_H, display: 'flex', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 3 }}>
-              {monthHeaders.map((mh, i) => (
-                <div key={i} style={{ width: mh.days * DAY_PX, flexShrink: 0, display: 'flex', alignItems: 'center', paddingLeft: 6, borderRight: '1px solid var(--border)', fontSize: '0.7rem', fontWeight: 700, color: 'var(--foreground)' }}>
-                  {mh.label}
-                </div>
-              ))}
-            </div>
-
-            {/* Cabecera días */}
-            <div style={{ height: ROW_H, display: 'flex', borderBottom: '2px solid var(--border)', position: 'sticky', top: ROW_H, background: 'var(--surface)', zIndex: 3 }}>
-              {Array.from({ length: totalDays }).map((_, i) => {
-                const d = new Date(rangeStart); d.setDate(d.getDate() + i)
-                const isWE  = d.getDay() === 0 || d.getDay() === 6
-                const isTod = daysBetween(rangeStart, d) === daysBetween(rangeStart, today)
-                return (
-                  <div key={i} style={{ width: DAY_PX, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.52rem', fontWeight: isTod ? 700 : 400, color: isTod ? 'var(--primary)' : isWE ? 'rgba(239,68,68,0.5)' : 'var(--text-muted)', background: isWE ? 'rgba(239,68,68,0.03)' : 'transparent', borderRight: '1px solid var(--border)' }}>
-                    {DAY_PX >= 16 ? d.getDate() : null}
-                  </div>
-                )
-              })}
-            </div>
 
             {/* Filas + SVG overlay */}
             <div style={{ position: 'relative' }}>

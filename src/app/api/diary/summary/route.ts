@@ -3,6 +3,9 @@ import { createServerSupabase } from '@/lib/supabase-server'
 import { createClient } from '@supabase/supabase-js'
 import { generateDiarySummary } from '@/lib/gemini'
 
+/* ── Pausar gasto de IA — cambiar a false para reactivar ── */
+const AI_PAUSED = true
+
 function getAdminDb() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -59,7 +62,12 @@ export async function GET(request: Request) {
     }
   } catch { /* table may not exist yet */ }
 
-  // ── 2. Días con más de 30 días de antigüedad → sin generación ──
+  // ── 2. IA pausada → servir caché si existe, sino indicar pausa ──
+  if (AI_PAUSED) {
+    return NextResponse.json({ summary: null, suggestions: [], paused: true })
+  }
+
+  // ── 3. Días con más de 30 días de antigüedad → sin generación ──
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10)
   if (date < thirtyDaysAgo) {
     return NextResponse.json({ summary: null, suggestions: [] })

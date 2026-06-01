@@ -122,6 +122,7 @@ export async function POST(
       user_id:    user.id,
       accion:     ACTION_TO_ACCION[action],
       comentario: comentario ?? null,
+      ...(action === 'propose' ? { pct_avance: pctAvance } : {}),
     })
     .select('*, user:user_id(name, email)')
     .single()

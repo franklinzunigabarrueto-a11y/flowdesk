@@ -138,6 +138,7 @@ ALTER TABLE public.schedule_baselines     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.schedule_approval_logs ENABLE ROW LEVEL SECURITY;
 
 -- Dependencias: acceso vía tarea → proyecto → owner
+DROP POLICY IF EXISTS "schedule_deps_owner" ON public.schedule_dependencies;
 CREATE POLICY "schedule_deps_owner" ON public.schedule_dependencies
   FOR ALL USING (
     EXISTS (
@@ -150,6 +151,7 @@ CREATE POLICY "schedule_deps_owner" ON public.schedule_dependencies
   );
 
 -- Recursos: acceso directo vía proyecto → owner
+DROP POLICY IF EXISTS "schedule_resources_owner" ON public.schedule_resources;
 CREATE POLICY "schedule_resources_owner" ON public.schedule_resources
   FOR ALL USING (
     EXISTS (
@@ -159,6 +161,7 @@ CREATE POLICY "schedule_resources_owner" ON public.schedule_resources
   );
 
 -- Asignaciones: acceso vía tarea → proyecto → owner
+DROP POLICY IF EXISTS "schedule_assignments_owner" ON public.schedule_assignments;
 CREATE POLICY "schedule_assignments_owner" ON public.schedule_assignments
   FOR ALL USING (
     EXISTS (
@@ -171,6 +174,7 @@ CREATE POLICY "schedule_assignments_owner" ON public.schedule_assignments
   );
 
 -- Baselines: acceso directo vía proyecto → owner
+DROP POLICY IF EXISTS "schedule_baselines_owner" ON public.schedule_baselines;
 CREATE POLICY "schedule_baselines_owner" ON public.schedule_baselines
   FOR ALL USING (
     EXISTS (
@@ -180,6 +184,7 @@ CREATE POLICY "schedule_baselines_owner" ON public.schedule_baselines
   );
 
 -- ApprovalLog: el owner del proyecto ve todo; el ejecutor ve sus propias acciones
+DROP POLICY IF EXISTS "schedule_approval_owner" ON public.schedule_approval_logs;
 CREATE POLICY "schedule_approval_owner" ON public.schedule_approval_logs
   FOR ALL USING (
     user_id = auth.uid()

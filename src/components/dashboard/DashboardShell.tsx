@@ -8,7 +8,7 @@ import {
   Calendar, CheckSquare, BookOpen, LogOut, User,
   ChevronDown, ChevronUp, X, Sun, Moon,
   CreditCard, Settings, Check, Smartphone, Pencil, CheckCircle, AlertCircle,
-  FolderKanban, BarChart2,
+  FolderKanban,
 } from 'lucide-react'
 import { UserProfile } from '@/types'
 
@@ -18,11 +18,10 @@ interface Props {
 }
 
 const navItems = [
-  { href: '/dashboard/project',     icon: FolderKanban, label: 'Proyecto'    },
-  { href: '/dashboard/seguimiento', icon: BarChart2,    label: 'Seguimiento' },
-  { href: '/dashboard',             icon: Calendar,     label: 'Calendario'  },
-  { href: '/dashboard/tasks',       icon: CheckSquare,  label: 'Tareas'      },
-  { href: '/dashboard/diary',       icon: BookOpen,     label: 'Bitácora'    },
+  { href: '/dashboard/project', icon: FolderKanban, label: 'Proyecto'   },
+  { href: '/dashboard',         icon: Calendar,     label: 'Calendario' },
+  { href: '/dashboard/tasks',   icon: CheckSquare,  label: 'Tareas'     },
+  { href: '/dashboard/diary',   icon: BookOpen,     label: 'Bitácora'   },
 ]
 
 export default function DashboardShell({ user, children }: Props) {

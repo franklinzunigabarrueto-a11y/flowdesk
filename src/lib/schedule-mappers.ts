@@ -72,22 +72,37 @@ export function mapDepInputToDB(body: any) {
 
 // ─── schedule_resources ──────────────────────────────────────────────────────
 
+const TIPO_TO_TYPE: Record<string, string> = {
+  persona:   'person',
+  equipo:    'equipment',
+  material:  'material',
+}
+const TYPE_TO_TIPO: Record<string, string> = {
+  person:    'persona',
+  equipment: 'equipo',
+  material:  'material',
+}
+
 export function mapResourceToFrontend(r: any) {
+  const rawTipo = r.tipo ?? r.type ?? ''
   return {
     ...r,
-    name:           r.nombre        ?? r.name,
-    type:           r.tipo          ?? r.type,
-    cost_per_unit:  r.costo_unitario ?? r.cost_per_unit ?? 0,
-    unit:           r.unit          ?? '',
-    assignments:    r.assignments,
+    name:          r.nombre         ?? r.name,
+    type:          TIPO_TO_TYPE[rawTipo] ?? rawTipo,
+    cost_per_unit: r.costo_unitario  ?? r.cost_per_unit ?? 0,
+    unit:          r.unit            ?? '',
+    assignments:   r.assignments,
   }
 }
 
 export function mapResourceInputToDB(body: any) {
-  const out: any = { project_id: body.project_id }
+  const rawType = body.tipo ?? body.type ?? ''
+  const out: any = {}
+  if (body.project_id) out.project_id   = body.project_id
   out.nombre         = body.nombre         ?? body.name
-  out.tipo           = body.tipo           ?? body.type
-  out.costo_unitario = body.costo_unitario ?? body.cost_per_unit ?? 0
+  out.tipo           = TYPE_TO_TIPO[rawType] ?? rawType
+  out.costo_unitario = body.costo_unitario  ?? body.cost_per_unit ?? 0
+  if (body.unit !== undefined) out.unit = body.unit
   return out
 }
 
@@ -137,9 +152,9 @@ export function mapBaselineToFrontend(b: any) {
 export function mapLogToFrontend(l: any) {
   return {
     ...l,
-    action:         l.accion     ?? l.action,
-    comment:        l.comentario ?? l.comment ?? null,
-    progress_value: null,
+    action:         l.accion      ?? l.action,
+    comment:        l.comentario  ?? l.comment ?? null,
+    progress_value: l.pct_avance  ?? l.progress_value ?? null,
     user:           l.user,
   }
 }

@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase-server'
 import { mapResourceToFrontend, mapResourceInputToDB } from '@/lib/schedule-mappers'
 
-const VALID_TIPOS = ['persona', 'equipo', 'material'] as const
+const VALID_TIPOS  = ['persona', 'equipo', 'material'] as const
+const VALID_TYPES  = ['person', 'equipment', 'material'] as const
+const TYPE_TO_TIPO: Record<string, string> = { person: 'persona', equipment: 'equipo', material: 'material' }
 
 async function auth(projectId: string) {
   const supabase = await createServerSupabase()
@@ -39,14 +41,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const body = await req.json()
 
   const nombre = body.nombre ?? body.name
-  const tipo   = body.tipo   ?? body.type
+  const rawTipo = body.tipo ?? body.type
+  const tipo   = TYPE_TO_TIPO[rawTipo] ?? rawTipo  // normalizar inglés → español
 
   if (!nombre?.trim()) {
     return NextResponse.json({ error: 'nombre es obligatorio', field: 'nombre' }, { status: 400 })
   }
-  if (!VALID_TIPOS.includes(tipo)) {
+  if (!VALID_TIPOS.includes(tipo as any)) {
     return NextResponse.json(
-      { error: `tipo debe ser uno de: ${VALID_TIPOS.join(', ')}`, field: 'tipo' },
+      { error: `tipo debe ser: ${[...VALID_TIPOS, ...VALID_TYPES].join(', ')}`, field: 'tipo' },
       { status: 400 },
     )
   }

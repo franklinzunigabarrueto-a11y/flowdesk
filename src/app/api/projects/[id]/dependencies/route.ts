@@ -14,14 +14,23 @@ async function getProjectAndUser(projectId: string) {
   return { error: null, supabase, user }
 }
 
+/** Obtiene los IDs de tareas de un proyecto */
+async function getTaskIds(supabase: ReturnType<typeof createServerSupabase> extends Promise<infer T> ? T : never, projectId: string): Promise<string[]> {
+  const { data } = await supabase
+    .from('project_tasks')
+    .select('id')
+    .eq('project_id', projectId)
+  return (data ?? []).map((r: { id: string }) => r.id)
+}
+
 /** Carga todas las dependencias del proyecto en formato CpmDep */
 async function loadDeps(supabase: ReturnType<typeof createServerSupabase> extends Promise<infer T> ? T : never, projectId: string): Promise<CpmDep[]> {
+  const taskIds = await getTaskIds(supabase, projectId)
+  if (taskIds.length === 0) return []
   const { data } = await supabase
     .from('schedule_dependencies')
     .select('predecesora_id, sucesora_id, tipo, lag')
-    .in('predecesora_id',
-      supabase.from('project_tasks').select('id').eq('project_id', projectId) as any
-    )
+    .in('predecesora_id', taskIds)
   return (data ?? []) as CpmDep[]
 }
 
@@ -31,12 +40,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { error, supabase } = await getProjectAndUser(id)
   if (error) return NextResponse.json({ error }, { status: 401 })
 
+  const taskIds = await getTaskIds(supabase, id)
+  if (taskIds.length === 0) return NextResponse.json({ dependencies: [] })
+
   const { data, error: dbErr } = await supabase
     .from('schedule_dependencies')
     .select('*, predecesora:predecesora_id(id,name,wbs), sucesora:sucesora_id(id,name,wbs)')
-    .in('predecesora_id',
-      supabase.from('project_tasks').select('id').eq('project_id', id) as any
-    )
+    .in('predecesora_id', taskIds)
 
   if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 })
   return NextResponse.json({ dependencies: (data ?? []).map(mapDepToFrontend) })

@@ -91,9 +91,13 @@ export async function recalculateWBS(
 
   const updates: { id: string; wbs: string; outline_level: number }[] = []
 
+  const visited = new Set<string>()
+
   function walk(parentId: string | null, prefix: string, level: number) {
     const children = childrenOf.get(parentId) ?? []
     children.forEach((child, i) => {
+      if (visited.has(child.id)) return  // protección contra parent_id circular en DB
+      visited.add(child.id)
       const wbs = prefix ? `${prefix}.${i + 1}` : `${i + 1}`
       updates.push({ id: child.id, wbs, outline_level: level })
       walk(child.id, wbs, level + 1)
