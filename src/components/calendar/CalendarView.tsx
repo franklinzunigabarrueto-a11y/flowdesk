@@ -1498,9 +1498,7 @@ function TaskRow({ days, tasks, onTaskComplete, onTaskCtxMenu, singleDay }: {
     }}>
       {!singleDay && (
         <div style={{ width:'52px', flexShrink:0, borderRight:'1px solid var(--border)', display:'flex', alignItems:'flex-start', justifyContent:'center', paddingTop:'6px' }}>
-          <span style={{ fontSize:'0.6rem', color:'#b45309', fontWeight:700, lineHeight:1.2, textAlign:'center' }}>
-            {'TAREAS'.split('').map((c, i) => <span key={i} style={{ display:'block' }}>{c}</span>)}
-          </span>
+          <span style={{ fontSize:'0.6rem', color:'#b45309', fontWeight:700, whiteSpace:'nowrap', transform:'rotate(-90deg)', display:'block' }}>TAREAS</span>
         </div>
       )}
       <div style={{ flex:1, display:'flex', overflowX:'hidden', paddingLeft: singleDay ? '56px' : 0 }}>
