@@ -68,6 +68,8 @@ export interface Project {
   updated_at: string
 }
 
+export type ProjectTaskStatus = 'pending' | 'in_progress' | 'in_review' | 'approved' | 'rejected' | 'completed'
+
 export interface ProjectTask {
   id: string
   project_id: string
@@ -77,12 +79,71 @@ export interface ProjectTask {
   outline_level: number
   start_date?: string | null
   end_date?: string | null
+  duration_days?: number | null
   progress: number
-  status: 'pending' | 'in_progress' | 'completed'
+  progress_proposed: number
+  status: ProjectTaskStatus
   is_summary: boolean
+  is_milestone: boolean
+  critical_path: boolean
   sort_order: number
+  color?: string | null
+  assignee_name?: string | null
+  proposed_by?: string | null
+  proposed_at?: string | null
+  approved_by?: string | null
+  approved_at?: string | null
+  rejection_reason?: string | null
+  baseline_start?: string | null
+  baseline_end?: string | null
+  baseline_progress?: number
   created_at: string
   updated_at: string
+}
+
+export interface TaskDependency {
+  id: string
+  predecessor_id: string
+  successor_id: string
+  type: 'FS' | 'SS' | 'FF' | 'SF'
+  lag_days: number
+}
+
+export interface ApprovalLog {
+  id: string
+  task_id: string
+  user_id: string
+  action: 'propose' | 'approve' | 'reject' | 'reset'
+  comment?: string | null
+  progress_value?: number | null
+  created_at: string
+  user?: { name: string; email: string }
+}
+
+export interface ProjectResource {
+  id: string
+  project_id: string
+  name: string
+  type: 'person' | 'equipment' | 'material'
+  cost_per_unit: number
+  unit: string
+}
+
+export interface TaskAssignment {
+  id: string
+  task_id: string
+  resource_id: string
+  units: number
+  total_cost: number
+  resource?: ProjectResource
+}
+
+export interface ProjectBaseline {
+  id: string
+  project_id: string
+  name: string
+  snapshot: ProjectTask[]
+  created_at: string
 }
 
 export interface UserProfile {

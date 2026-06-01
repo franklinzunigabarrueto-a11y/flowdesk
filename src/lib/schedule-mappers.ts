@@ -1,0 +1,135 @@
+// Mappers between DB column names (Spanish) and frontend type names (English)
+
+// ─── project_tasks ───────────────────────────────────────────────────────────
+
+const TASK_DB_COLS = new Set([
+  'id','project_id','parent_id','name','wbs','outline_level',
+  'start_date','end_date','progress','status','is_summary','sort_order',
+  'duracion','pct_avance_propuesto','pct_avance_aprobado','es_hito','en_ruta_critica',
+  'created_at','updated_at',
+])
+
+export function mapTaskToFrontend(t: any) {
+  return {
+    ...t,
+    progress:          t.pct_avance_aprobado  ?? t.progress  ?? 0,
+    progress_proposed: t.pct_avance_propuesto ?? 0,
+    is_milestone:      t.es_hito              ?? false,
+    critical_path:     t.en_ruta_critica      ?? false,
+    duration_days:     t.duracion             ?? null,
+    // fields not in DB — provide safe defaults
+    color:            t.color            ?? null,
+    assignee_name:    t.assignee_name    ?? null,
+    baseline_start:   t.baseline_start   ?? null,
+    baseline_end:     t.baseline_end     ?? null,
+    baseline_progress: t.baseline_progress ?? 0,
+    proposed_by:      null,
+    proposed_at:      null,
+    approved_by:      null,
+    approved_at:      null,
+    rejection_reason: null,
+  }
+}
+
+// Maps a PATCH/POST body from frontend field names to DB column names,
+// filtering out fields that don't exist in the DB.
+export function mapTaskPatchToDB(body: any) {
+  const patch: any = {}
+  for (const [k, v] of Object.entries(body)) {
+    if (k === 'progress')          { patch.pct_avance_aprobado  = v; continue }
+    if (k === 'progress_proposed') { patch.pct_avance_propuesto = v; continue }
+    if (k === 'is_milestone')      { patch.es_hito              = v; continue }
+    if (k === 'critical_path')     { patch.en_ruta_critica      = v; continue }
+    if (k === 'duration_days')     { patch.duracion             = v; continue }
+    if (TASK_DB_COLS.has(k))       { patch[k] = v }
+    // silently drop non-DB fields (color, assignee_name, baseline_*, etc.)
+  }
+  return patch
+}
+
+// ─── schedule_dependencies ───────────────────────────────────────────────────
+
+export function mapDepToFrontend(d: any) {
+  return {
+    ...d,
+    predecessor_id: d.predecesora_id,
+    successor_id:   d.sucesora_id,
+    type:           d.tipo,
+    lag_days:       d.lag ?? 0,
+    predecesora:    d.predecesora,
+    sucesora:       d.sucesora,
+  }
+}
+
+export function mapDepInputToDB(body: any) {
+  return {
+    predecesora_id: body.predecesora_id ?? body.predecessor_id,
+    sucesora_id:    body.sucesora_id    ?? body.successor_id,
+    tipo:           body.tipo           ?? body.type ?? 'FS',
+    lag:            body.lag            ?? body.lag_days ?? 0,
+  }
+}
+
+// ─── schedule_resources ──────────────────────────────────────────────────────
+
+export function mapResourceToFrontend(r: any) {
+  return {
+    ...r,
+    name:           r.nombre        ?? r.name,
+    type:           r.tipo          ?? r.type,
+    cost_per_unit:  r.costo_unitario ?? r.cost_per_unit ?? 0,
+    unit:           r.unit          ?? '',
+    assignments:    r.assignments,
+  }
+}
+
+export function mapResourceInputToDB(body: any) {
+  const out: any = { project_id: body.project_id }
+  out.nombre         = body.nombre         ?? body.name
+  out.tipo           = body.tipo           ?? body.type
+  out.costo_unitario = body.costo_unitario ?? body.cost_per_unit ?? 0
+  return out
+}
+
+// ─── schedule_assignments ────────────────────────────────────────────────────
+
+export function mapAssignmentToFrontend(a: any) {
+  return {
+    ...a,
+    units:      a.unidades  ?? a.units      ?? 1,
+    total_cost: a.costo     ?? a.total_cost ?? 0,
+    resource:   a.resource  ? mapResourceToFrontend(a.resource) : null,
+    task:       a.task,
+  }
+}
+
+export function mapAssignmentInputToDB(body: any) {
+  return {
+    task_id:     body.task_id,
+    resource_id: body.resource_id,
+    user_id:     body.user_id ?? null,
+    unidades:    body.unidades ?? body.units ?? 1,
+  }
+}
+
+// ─── schedule_baselines ──────────────────────────────────────────────────────
+
+export function mapBaselineToFrontend(b: any) {
+  return {
+    ...b,
+    name:       b.nombre        ?? b.name,
+    created_at: b.fecha_creacion ?? b.created_at,
+  }
+}
+
+// ─── schedule_approval_logs ──────────────────────────────────────────────────
+
+export function mapLogToFrontend(l: any) {
+  return {
+    ...l,
+    action:         l.accion     ?? l.action,
+    comment:        l.comentario ?? l.comment ?? null,
+    progress_value: null,
+    user:           l.user,
+  }
+}
