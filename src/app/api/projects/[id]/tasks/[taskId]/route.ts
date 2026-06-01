@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase-server'
 import { mapTaskToFrontend, mapTaskPatchToDB } from '@/lib/schedule-mappers'
 import { validateDates, detectCycle, recalculateWBS } from '@/lib/schedule-validators'
+import { runCPM } from '@/lib/schedule-cpm'
 
 // GET /api/projects/[id]/tasks/[taskId]
 // Devuelve una tarea individual con su WBS actualizado.
@@ -70,6 +71,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   // Recalcular WBS si cambió la jerarquía o el orden
   const hierarchyChanged = 'parent_id' in body || 'sort_order' in body
   if (hierarchyChanged) await recalculateWBS(supabase, id)
+
+  // Recalcular CPM si cambiaron las fechas o la duración
+  const datesChanged = 'start_date' in body || 'end_date' in body || 'duration_days' in body || 'duracion' in body
+  if (datesChanged) await runCPM(supabase, id)
 
   const { data: updated } = await supabase
     .from('project_tasks').select('*').eq('id', taskId).single()
