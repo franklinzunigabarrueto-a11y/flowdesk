@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase-server'
 import { mapTaskToFrontend, mapTaskPatchToDB } from '@/lib/schedule-mappers'
 import { validateDates, recalculateWBS } from '@/lib/schedule-validators'
+import { resolveProjectRole } from '@/lib/schedule-roles'
 
 async function ownsProject(
   supabase: Awaited<ReturnType<typeof createServerSupabase>>,
@@ -27,7 +28,8 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     .order('sort_order', { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ tasks: (tasks ?? []).map(mapTaskToFrontend), isAdmin: true })
+  const role = await resolveProjectRole(supabase, id, user.id)
+  return NextResponse.json({ tasks: (tasks ?? []).map(mapTaskToFrontend), role, isAdmin: role === 'admin' })
 }
 
 // POST /api/projects/[id]/tasks

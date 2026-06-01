@@ -12,6 +12,7 @@ import {
   Project, ProjectTask, ProjectTaskStatus, TaskDependency,
   ApprovalLog, ProjectResource, TaskAssignment, ProjectBaseline,
 } from '@/types'
+import ScheduleTable from './ScheduleTable'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 const pad2 = (n: number) => String(n).padStart(2, '0')
@@ -287,15 +288,7 @@ export default function ProjectView() {
             {/* Tab content */}
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               {tab === 'cronograma' && (
-                <CronogramaTab
-                  tasks={tasks} roots={roots} children={children} deps={deps}
-                  isAdmin={isAdmin} criticalIds={criticalIds}
-                  onUpdate={updateTask} onDelete={deleteTask}
-                  onAddChild={id => addTask(id, (tasks.find(t => t.id === id)?.outline_level ?? 1) + 1)}
-                  onApprove={approveTask} onPropose={proposeProgress}
-                  onAddDep={addDep} onRemoveDep={removeDep}
-                  projectId={selectedId!}
-                />
+                <ScheduleTable projectId={selectedId!} />
               )}
               {tab === 'gantt' && (
                 <GanttTab tasks={tasks} deps={deps} criticalIds={criticalIds} onUpdate={updateTask} projectId={selectedId!} />

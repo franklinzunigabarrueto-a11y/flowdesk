@@ -133,6 +133,25 @@ export function validateTransition(
 
 // ─── Resolución de rol (requiere Supabase) ────────────────────────────────────
 
+/** Rol del usuario en el proyecto (sin tarea específica). */
+export async function resolveProjectRole(
+  supabase: SupabaseClient,
+  projectId: string,
+  userId:    string,
+): Promise<Role> {
+  const { data: project } = await supabase
+    .from('projects').select('user_id').eq('id', projectId).single()
+  if (project?.user_id === userId) return 'admin'
+
+  const { data: member } = await supabase
+    .from('schedule_project_members')
+    .select('role').eq('project_id', projectId).eq('user_id', userId).single()
+  if (member?.role === 'admin')        return 'admin'
+  if (member?.role === 'professional') return 'professional'
+
+  return 'none'
+}
+
 /**
  * Determina el rol del usuario en el contexto del proyecto/tarea.
  * Ver doc del módulo para el orden de prioridad.
