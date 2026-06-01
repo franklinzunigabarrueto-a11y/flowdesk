@@ -1486,19 +1486,27 @@ function TaskRow({ days, tasks, onTaskComplete, onTaskCtxMenu, singleDay }: {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const MAX = 4
 
+  // Close expanded on any outside click
+  useEffect(() => {
+    if (expanded.size === 0) return
+    const close = () => setExpanded(new Set())
+    window.addEventListener('click', close)
+    return () => window.removeEventListener('click', close)
+  }, [expanded.size])
+
   const hasTasks = days.some(d => tasks.some(t => t.due_date === dateStr(d)))
   if (!hasTasks) return null
 
   return (
     <div style={{
       display:'flex', flexShrink:0,
-      background:'rgba(234,179,8,0.06)',
+      background:'rgba(234,179,8,0.10)',
       borderLeft:'1px solid var(--border)', borderRight:'1px solid var(--border)',
-      borderBottom:'1px solid rgba(234,179,8,0.18)',
+      borderBottom:'1px solid rgba(234,179,8,0.28)',
     }}>
       {!singleDay && (
-        <div style={{ width:'52px', flexShrink:0, borderRight:'1px solid var(--border)', display:'flex', alignItems:'flex-start', justifyContent:'center', paddingTop:'6px' }}>
-          <span style={{ fontSize:'0.6rem', color:'#b45309', fontWeight:700, whiteSpace:'nowrap', transform:'rotate(-90deg)', display:'block' }}>TAREAS</span>
+        <div style={{ width:'52px', flexShrink:0, borderRight:'1px solid rgba(234,179,8,0.28)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'visible' }}>
+          <span style={{ fontSize:'0.6rem', color:'#92400e', fontWeight:800, whiteSpace:'nowrap', transform:'rotate(-90deg)', display:'block', letterSpacing:'0.08em' }}>TAREAS</span>
         </div>
       )}
       <div style={{ flex:1, display:'flex', overflowX:'hidden', paddingLeft: singleDay ? '56px' : 0 }}>
@@ -1516,7 +1524,7 @@ function TaskRow({ days, tasks, onTaskComplete, onTaskCtxMenu, singleDay }: {
                   onContextMenu={onTaskCtxMenu ? e => { e.preventDefault(); e.stopPropagation(); onTaskCtxMenu(t, e.clientX, e.clientY) } : undefined}
                   style={{
                     display:'flex', alignItems:'center', gap:'4px',
-                    background:'rgba(234,179,8,0.18)', border:'1px solid rgba(234,179,8,0.3)',
+                    background:'rgba(234,179,8,0.22)', border:'1px solid rgba(234,179,8,0.38)',
                     borderRadius:'5px', padding:'2px 5px',
                     opacity: t.status === 'completed' ? 0.45 : 1,
                   }}>
@@ -1533,14 +1541,14 @@ function TaskRow({ days, tasks, onTaskComplete, onTaskCtxMenu, singleDay }: {
                 </div>
               ))}
               {!isExpanded && overflow > 0 && (
-                <button onClick={() => setExpanded(s => new Set([...s, key]))}
-                  style={{ fontSize:'0.58rem', fontWeight:700, color:'#b45309', background:'transparent', border:'none', cursor:'pointer', textAlign:'left', padding:'1px 4px' }}>
+                <button onClick={e => { e.stopPropagation(); setExpanded(s => new Set([...s, key])) }}
+                  style={{ fontSize:'0.58rem', fontWeight:700, color:'#92400e', background:'transparent', border:'none', cursor:'pointer', textAlign:'left', padding:'1px 4px' }}>
                   +{overflow} más
                 </button>
               )}
               {isExpanded && dayTasks.length > MAX && (
-                <button onClick={() => setExpanded(s => { const n = new Set(s); n.delete(key); return n })}
-                  style={{ fontSize:'0.58rem', fontWeight:700, color:'#b45309', background:'transparent', border:'none', cursor:'pointer', textAlign:'left', padding:'1px 4px' }}>
+                <button onClick={e => { e.stopPropagation(); setExpanded(s => { const n = new Set(s); n.delete(key); return n }) }}
+                  style={{ fontSize:'0.58rem', fontWeight:700, color:'#92400e', background:'transparent', border:'none', cursor:'pointer', textAlign:'left', padding:'1px 4px' }}>
                   Ver menos
                 </button>
               )}
