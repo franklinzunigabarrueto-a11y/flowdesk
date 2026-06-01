@@ -14,7 +14,9 @@ const fetcher = (url: string) => fetch(url).then(r => r.json())
 const DAY_SHORT  = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const DAY_FULL   = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
 const MONTHS     = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
-const COLORS     = ['#f97316','#3b82f6','#22c55e','#ef4444','#8b5cf6','#f59e0b']
+const COLORS          = ['#f97316','#3b82f6','#22c55e','#ef4444','#8b5cf6','#f59e0b']
+const EVENT_COLOR     = '#9ca3af'   // gris — color default de eventos
+const TASK_COLOR      = '#eab308'   // amarillo — tareas en el calendario
 const START_H    = 0
 const END_H      = 24
 const ROW_H      = 56   // px per hour
@@ -158,6 +160,11 @@ export default function CalendarView() {
   })()
   const { data: eventsData, mutate } = useSWR(swrKey, fetcher)
   const events: CalendarEvent[] = eventsData?.events ?? []
+
+  type CalTask = { id: string; title: string; due_date: string; priority: string; status: string }
+  const { data: tasksData } = useSWR(`/api/tasks?month=${month + 1}&year=${year}`, fetcher)
+  const calTasks: CalTask[] = (tasksData?.tasks ?? []).filter((t: CalTask) => t.due_date && t.status !== 'completed')
+  function tasksForDate(d: Date) { return calTasks.filter(t => t.due_date === dateStr(d)) }
 
   /* Supabase Realtime — refetch instantly when calendar_events changes (e.g. from Google Calendar webhook) */
   useEffect(() => {
@@ -369,6 +376,7 @@ export default function CalendarView() {
   const isWkendCol  = (col: number) => col === 5 || col === 6
   const selDate     = new Date(year, month, selDay)
   const selEvents   = eventsForDay(selDate)
+  const selTasks    = tasksForDate(selDate)
 
   /* End-time preview for form */
   function calcEndPreview(date: string, time: string, dur: number): string {
@@ -688,7 +696,8 @@ export default function CalendarView() {
                 const day = i + 1
                 const col = (firstDay + i) % 7
                 const wknd = isWkendCol(col)
-                const evs = eventsForDay(new Date(year, month, day))
+                const evs  = eventsForDay(new Date(year, month, day))
+                const tsks = tasksForDate(new Date(year, month, day))
                 const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear()
                 const isSel = day === selDay
                 return (
@@ -728,10 +737,13 @@ export default function CalendarView() {
                         position:'relative',
                       }}>
                       {day}
-                      {evs.length > 0 && (
-                        <div style={{ display:'flex', gap:'2px' }}>
-                          {evs.slice(0, 3).map((ev, idx) => (
-                            <div key={idx} style={{ width:'4px', height:'4px', borderRadius:'50%', background: isToday ? 'rgba(255,255,255,0.8)' : (ev.color || COLORS[idx % COLORS.length]) }} />
+                      {(evs.length > 0 || tsks.length > 0) && (
+                        <div style={{ display:'flex', gap:'2px', flexWrap:'wrap', justifyContent:'center' }}>
+                          {evs.slice(0, 2).map((ev, idx) => (
+                            <div key={`e${idx}`} style={{ width:'5px', height:'5px', borderRadius:'50%', background: isToday ? 'rgba(255,255,255,0.85)' : (ev.color || EVENT_COLOR) }} />
+                          ))}
+                          {tsks.slice(0, 2).map((_, idx) => (
+                            <div key={`t${idx}`} style={{ width:'5px', height:'5px', borderRadius:'2px', background: isToday ? 'rgba(255,255,255,0.85)' : TASK_COLOR }} />
                           ))}
                         </div>
                       )}
@@ -857,7 +869,7 @@ export default function CalendarView() {
                           padding:'0.65rem 0.875rem',
                           borderRadius:'10px',
                           borderLeft:`3px solid ${ev.color || 'var(--primary)'}`,
-                          background:`${ev.color || '#f97316'}14`,
+                          background:`${ev.color || EVENT_COLOR}14`,
                           display:'flex', flexDirection:'column', gap:'3px',
                         }}>
                           <p style={{ fontSize:'0.875rem', fontWeight:600, margin:0, color:'var(--foreground)' }}>{ev.title}</p>
@@ -882,22 +894,38 @@ export default function CalendarView() {
               <h3 style={{ fontSize:'0.95rem', fontWeight:600, margin:0 }}>
                 {isSameDay(selDate, today) ? 'Hoy' : `${selDay} de ${MONTHS[month]}`}
               </h3>
-              <p style={{ fontSize:'0.8rem', color:'var(--text-muted)', margin:'4px 0 0' }}>{selEvents.length} evento{selEvents.length !== 1 ? 's' : ''}</p>
+              <p style={{ fontSize:'0.8rem', color:'var(--text-muted)', margin:'4px 0 0' }}>
+                {selEvents.length} evento{selEvents.length !== 1 ? 's' : ''}
+                {selTasks.length > 0 && ` · ${selTasks.length} tarea${selTasks.length !== 1 ? 's' : ''}`}
+              </p>
             </div>
             <div style={{ padding:'1rem', flex:1, overflowY:'auto' }}>
-              {selEvents.length === 0 ? (
+              {selEvents.length === 0 && selTasks.length === 0 ? (
                 <div style={{ textAlign:'center', padding:'2rem 1rem', color:'var(--text-muted)', fontSize:'0.85rem' }}>
                   <CalIcon size={32} style={{ margin:'0 auto 0.75rem', opacity:0.4 }} />
                   Sin eventos este día.<br /><span style={{ fontSize:'0.8rem' }}>Escribe en WhatsApp para agendar.</span>
                 </div>
-              ) : selEvents.map((ev, i) => (
-                <MonthEventCard key={ev.id} event={ev} index={i} deletingId={deletingId}
-                  onEdit={() => { setPopupEvent(ev); setPopupEditing(false); openEditPopup(ev) }}
-                  onDelete={deleteEvent}
-                  onLightbox={setLightboxUrl}
-                  onToggleComplete={toggleEventComplete}
-                />
-              ))}
+              ) : <>
+                {selTasks.map(t => (
+                  <div key={t.id} style={{ padding:'0.65rem 0.875rem', borderRadius:'10px', borderLeft:`3px solid ${TASK_COLOR}`, background:`${TASK_COLOR}18`, marginBottom:'8px', display:'flex', alignItems:'center', gap:'8px' }}>
+                    <span style={{ fontSize:'0.85rem' }}>✅</span>
+                    <div>
+                      <p style={{ fontSize:'0.875rem', fontWeight:600, margin:0, color:'var(--foreground)' }}>{t.title}</p>
+                      <p style={{ fontSize:'0.72rem', color:'var(--text-muted)', margin:'2px 0 0' }}>
+                        {t.priority === 'high' ? '🔴 Alta' : t.priority === 'medium' ? '🟡 Media' : '🟢 Baja'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {selEvents.map((ev, i) => (
+                  <MonthEventCard key={ev.id} event={ev} index={i} deletingId={deletingId}
+                    onEdit={() => { setPopupEvent(ev); setPopupEditing(false); openEditPopup(ev) }}
+                    onDelete={deleteEvent}
+                    onLightbox={setLightboxUrl}
+                    onToggleComplete={toggleEventComplete}
+                  />
+                ))}
+              </>}
             </div>
           </div>
         </div>
@@ -915,6 +943,7 @@ export default function CalendarView() {
             onDragCreate={openDragCreate}
             onCtxMenu={openContextMenu}
             onCtxMenuEvent={openEventContextMenu}
+            tasks={calTasks}
           />
         </div>
       )}
@@ -930,6 +959,7 @@ export default function CalendarView() {
             onDragCreate={openDragCreate}
             onCtxMenu={openContextMenu}
             onCtxMenuEvent={openEventContextMenu}
+            tasks={calTasks}
           />
         </div>
       )}
@@ -943,7 +973,7 @@ function MonthEventCard({ event, index, deletingId, onEdit, onDelete, onLightbox
   onEdit: () => void; onDelete: (id: string) => void; onLightbox: (url: string) => void
   onToggleComplete: (ev: CalendarEvent) => void
 }) {
-  const color = event.color || COLORS[index % COLORS.length]
+  const color = event.color || EVENT_COLOR
   const done = !!event.completed
   return (
     <div style={{ padding:'0.875rem', borderRadius:'12px', background:'var(--surface-hover)', border:`1px solid ${color}30`, marginBottom:'8px', borderLeft:`3px solid ${done ? 'var(--border)' : color}`, opacity: done ? 0.6 : 1, transition:'opacity 0.2s' }}>
@@ -1171,7 +1201,7 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent, onCtxMenuEv
   const baseHeight = Math.max((e - s) * ROW_H, ROW_H / 4)
   const top    = liveTop    ?? baseTop
   const height = liveHeight ?? baseHeight
-  const color  = event.color || COLORS[0]
+  const color  = event.color || EVENT_COLOR
   const isDragging = dragMode !== null
 
   const pxPer15 = ROW_H / 12  // 5-min snap (ROW_H / 12 = 56/12 ≈ 4.67 px per 5 min)
@@ -1413,7 +1443,9 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent, onCtxMenuEv
 }
 
 /* ─── Week view ─── */
-function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onMove, onDoubleClickCell, onDragCreate, onCtxMenu, onCtxMenuEvent }: {
+type CalTask = { id: string; title: string; due_date: string; priority: string; status: string }
+
+function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onMove, onDoubleClickCell, onDragCreate, onCtxMenu, onCtxMenuEvent, tasks }: {
   events: CalendarEvent[]; today: Date; days: Date[]
   onEventClick: (ev: CalendarEvent) => void; onDayClick: (d: Date) => void
   onResize: (id: string, start: string, end: string) => void
@@ -1422,6 +1454,7 @@ function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onM
   onDragCreate?: (date: string, startTime: string, endTime: string) => void
   onCtxMenu?: (date: string, time: string, x: number, y: number) => void
   onCtxMenuEvent?: (ev: CalendarEvent, x: number, y: number) => void
+  tasks?: CalTask[]
 }) {
   return (
     <>
@@ -1446,6 +1479,28 @@ function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onM
           })}
         </div>
       </div>
+      {/* Tasks all-day row */}
+      {tasks && tasks.length > 0 && (
+        <div style={{ display:'flex', background:'var(--surface)', borderLeft:'1px solid var(--border)', borderRight:'1px solid var(--border)', flexShrink:0 }}>
+          <div style={{ width:'52px', flexShrink:0, borderRight:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center', padding:'4px 0' }}>
+            <span style={{ fontSize:'0.6rem', color:'var(--text-muted)', fontWeight:600, writingMode:'horizontal-tb' }}>TAR.</span>
+          </div>
+          <div style={{ flex:1, display:'flex', overflowX:'hidden' }}>
+            {days.map(d => {
+              const dayTasks = tasks.filter(t => t.due_date === dateStr(d))
+              return (
+                <div key={dateStr(d)} style={{ flex:1, minWidth:'80px', padding:'3px 4px', borderRight:'1px solid var(--border)', display:'flex', flexDirection:'column', gap:'2px', minHeight:'24px' }}>
+                  {dayTasks.map(t => (
+                    <div key={t.id} style={{ background: TASK_COLOR, borderRadius:'4px', padding:'1px 5px', fontSize:'0.62rem', fontWeight:600, color:'#1a1000', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                      {t.title}
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
       {/* Scrollable time grid (no headers) */}
       <TimeGrid noAxisHeader>
         {days.map(d => (
@@ -1469,7 +1524,7 @@ function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onM
 }
 
 /* ─── Day view ─── */
-function DayView({ events, today, date, onEventClick, onResize, onMove, onDoubleClickCell, onDragCreate, onCtxMenu, onCtxMenuEvent }: {
+function DayView({ events, today, date, onEventClick, onResize, onMove, onDoubleClickCell, onDragCreate, onCtxMenu, onCtxMenuEvent, tasks }: {
   events: CalendarEvent[]; today: Date; date: Date
   onEventClick: (ev: CalendarEvent) => void
   onResize: (id: string, start: string, end: string) => void
@@ -1478,6 +1533,7 @@ function DayView({ events, today, date, onEventClick, onResize, onMove, onDouble
   onDragCreate?: (date: string, startTime: string, endTime: string) => void
   onCtxMenu?: (date: string, time: string, x: number, y: number) => void
   onCtxMenuEvent?: (ev: CalendarEvent, x: number, y: number) => void
+  tasks?: CalTask[]
 }) {
   const isToday = isSameDay(date, today)
   const wknd    = isWeekend(date)
@@ -1495,6 +1551,16 @@ function DayView({ events, today, date, onEventClick, onResize, onMove, onDouble
           </span>
         </div>
       </div>
+      {/* Tasks all-day row */}
+      {tasks && tasks.filter(t => t.due_date === dateStr(date)).length > 0 && (
+        <div style={{ display:'flex', background:'var(--surface)', borderLeft:'1px solid var(--border)', borderRight:'1px solid var(--border)', flexShrink:0, padding:'3px 4px 3px 60px', gap:'4px', flexWrap:'wrap' }}>
+          {tasks.filter(t => t.due_date === dateStr(date)).map(t => (
+            <div key={t.id} style={{ background: TASK_COLOR, borderRadius:'4px', padding:'2px 8px', fontSize:'0.7rem', fontWeight:600, color:'#1a1000' }}>
+              {t.title}
+            </div>
+          ))}
+        </div>
+      )}
       <TimeGrid noAxisHeader>
         <DayColumn date={date} today={today} events={events} onEventClick={onEventClick} onResize={onResize} onMove={onMove} noHeader onDoubleClickCell={onDoubleClickCell} onDragCreate={onDragCreate} onCtxMenu={onCtxMenu} onCtxMenuEvent={onCtxMenuEvent} />
       </TimeGrid>
