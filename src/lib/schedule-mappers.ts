@@ -99,17 +99,22 @@ export function mapAssignmentToFrontend(a: any) {
     units:      a.unidades  ?? a.units      ?? 1,
     total_cost: a.costo     ?? a.total_cost ?? 0,
     resource:   a.resource  ? mapResourceToFrontend(a.resource) : null,
+    user:       a.user      ?? null,
     task:       a.task,
   }
 }
 
-export function mapAssignmentInputToDB(body: any) {
-  return {
+export function mapAssignmentInputToDB(body: any): Record<string, unknown> {
+  const out: Record<string, unknown> = {
     task_id:     body.task_id,
-    resource_id: body.resource_id,
-    user_id:     body.user_id ?? null,
-    unidades:    body.unidades ?? body.units ?? 1,
+    resource_id: body.resource_id ?? null,
+    user_id:     body.user_id     ?? null,
+    unidades:    body.unidades    ?? body.units ?? 1,
   }
+  // costo puede ser calculado externamente y pasado ya calculado
+  if (body.costo     !== undefined) out.costo = body.costo
+  if (body.total_cost !== undefined) out.costo = body.total_cost
+  return out
 }
 
 // ─── schedule_baselines ──────────────────────────────────────────────────────
