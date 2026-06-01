@@ -107,6 +107,15 @@ export default function CalendarView() {
   const [createUpl, setCreateUpl] = useState(false)
   const [createDrag,setCreateDrag]= useState(false)
 
+  // Context menu (right-click)
+  type CtxMenu = { x: number; y: number; date: string; time: string }
+  const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null)
+
+  // Quick task
+  const [showQuickTask, setShowQuickTask] = useState(false)
+  const [newTask,       setNewTask]       = useState({ title: '', date: '', priority: 'medium' as 'low'|'medium'|'high' })
+  const [savingTask,    setSavingTask]    = useState(false)
+
   const [editDraft, setEditDraft] = useState({ title: '', date: '', time: '', endTime: '', description: '' })
   const [editImg,   setEditImg]   = useState<string | null>(null)
   const [editUpl,   setEditUpl]   = useState(false)
@@ -281,6 +290,24 @@ export default function CalendarView() {
     } finally { setEditSaving(false) }
   }
 
+  function openContextMenu(date: string, time: string, x: number, y: number) {
+    setCtxMenu({ x, y, date, time })
+  }
+
+  async function createTask(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newTask.title.trim()) return
+    setSavingTask(true)
+    try {
+      await fetch('/api/tasks', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newTask.title, due_date: newTask.date || undefined, priority: newTask.priority }),
+      })
+      setNewTask({ title: '', date: '', priority: 'medium' })
+      setShowQuickTask(false)
+    } finally { setSavingTask(false) }
+  }
+
   function openQuickCreate(date: string, time: string) {
     const snapped = snapTime15(time)
     setNewEv({ title: '', date, time: snapped, endTime: autoEndTime(snapped), description: '' })
@@ -320,6 +347,15 @@ export default function CalendarView() {
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
   }, [dayExpand])
+
+  useEffect(() => {
+    if (!ctxMenu) return
+    const close = () => setCtxMenu(null)
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setCtxMenu(null) }
+    window.addEventListener('click', close)
+    window.addEventListener('keydown', onKey)
+    return () => { window.removeEventListener('click', close); window.removeEventListener('keydown', onKey) }
+  }, [ctxMenu])
 
   /* Month-specific */
   const firstDay    = (new Date(year, month, 1).getDay() + 6) % 7
@@ -450,6 +486,81 @@ export default function CalendarView() {
                 <button type="button" onClick={() => setShowQuickCreate(false)} style={{ padding:'8px 16px', borderRadius:'8px', background:'transparent', border:'1px solid var(--border)', color:'var(--text-muted)', cursor:'pointer', fontSize:'0.875rem' }}>Cancelar</button>
                 <button type="submit" disabled={saving} style={{ padding:'8px 20px', borderRadius:'8px', background:'var(--primary)', border:'none', color:'white', cursor:'pointer', fontSize:'0.875rem', fontWeight:600, boxShadow:'0 0 12px var(--primary-glow)' }}>
                   {saving ? 'Guardando...' : 'Crear evento'}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Context menu (right-click) */}
+      {ctxMenu && createPortal(
+        <div onClick={e => e.stopPropagation()} style={{
+          position:'fixed', left: ctxMenu.x, top: ctxMenu.y, zIndex:9000,
+          background:'var(--surface)', border:'1px solid var(--border)',
+          borderRadius:'12px', boxShadow:'0 8px 32px rgba(0,0,0,0.18)',
+          padding:'6px', minWidth:'170px', animation:'fadeIn 0.1s ease',
+        }}>
+          <button onClick={() => { setCtxMenu(null); openQuickCreate(ctxMenu.date, ctxMenu.time) }} style={{
+            display:'flex', alignItems:'center', gap:'10px', width:'100%',
+            padding:'9px 14px', borderRadius:'8px', border:'none', background:'transparent',
+            cursor:'pointer', fontSize:'0.85rem', fontWeight:500, color:'var(--foreground)',
+            textAlign:'left',
+          }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-hover)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+          >
+            <span style={{ fontSize:'1rem' }}>📅</span> Crear Evento
+          </button>
+          <button onClick={() => { setCtxMenu(null); setNewTask(t => ({ ...t, date: ctxMenu.date })); setShowQuickTask(true) }} style={{
+            display:'flex', alignItems:'center', gap:'10px', width:'100%',
+            padding:'9px 14px', borderRadius:'8px', border:'none', background:'transparent',
+            cursor:'pointer', fontSize:'0.85rem', fontWeight:500, color:'var(--foreground)',
+            textAlign:'left',
+          }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-hover)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+          >
+            <span style={{ fontSize:'1rem' }}>✅</span> Crear Tarea
+          </button>
+        </div>,
+        document.body
+      )}
+
+      {/* Quick-task modal */}
+      {showQuickTask && (
+        <div onClick={() => setShowQuickTask(false)} style={{ position:'fixed', inset:0, zIndex:600, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', backdropFilter:'blur(4px)' }}>
+          <form onSubmit={createTask} onClick={e => e.stopPropagation()} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'20px', width:'420px', maxWidth:'94vw', boxShadow:'0 24px 80px rgba(0,0,0,0.25)', animation:'fadeIn 0.18s ease', overflow:'hidden' }}>
+            <div style={{ height:'4px', background:'#22c55e' }} />
+            <div style={{ padding:'1.5rem', display:'flex', flexDirection:'column', gap:'12px' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <span style={{ fontSize:'0.82rem', fontWeight:600, color:'var(--text-muted)' }}>Nueva tarea</span>
+                <button type="button" onClick={() => setShowQuickTask(false)} style={{ background:'transparent', border:'none', cursor:'pointer', color:'var(--text-muted)', padding:'4px', borderRadius:'6px', display:'flex', alignItems:'center' }}><X size={16} /></button>
+              </div>
+              <input autoFocus type="text" placeholder="Título de la tarea..." value={newTask.title} required
+                onChange={e => setNewTask(p => ({ ...p, title: e.target.value }))}
+                style={{ padding:'10px 14px', borderRadius:'10px', background:'var(--background)', border:'1px solid var(--border)', color:'var(--foreground)', fontSize:'1rem', outline:'none', fontWeight:600 }} />
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
+                <DatePicker value={newTask.date} onChange={d => setNewTask(p => ({ ...p, date: d }))} />
+                <div style={{ display:'flex', gap:'4px' }}>
+                  {(['low','medium','high'] as const).map(p => (
+                    <button key={p} type="button" onClick={() => setNewTask(t => ({ ...t, priority: p }))} style={{
+                      flex:1, padding:'8px 4px', borderRadius:'8px', border:'none', cursor:'pointer', fontSize:'0.72rem', fontWeight:600,
+                      background: newTask.priority === p
+                        ? p === 'high' ? '#ef4444' : p === 'medium' ? '#f59e0b' : '#22c55e'
+                        : 'var(--background)',
+                      color: newTask.priority === p ? 'white' : 'var(--text-muted)',
+                      transition:'all 0.15s',
+                    }}>
+                      {p === 'high' ? '🔴 Alta' : p === 'medium' ? '🟡 Media' : '🟢 Baja'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ display:'flex', gap:'8px', justifyContent:'flex-end', marginTop:'4px' }}>
+                <button type="button" onClick={() => setShowQuickTask(false)} style={{ padding:'8px 16px', borderRadius:'8px', background:'transparent', border:'1px solid var(--border)', color:'var(--text-muted)', cursor:'pointer', fontSize:'0.875rem' }}>Cancelar</button>
+                <button type="submit" disabled={savingTask} style={{ padding:'8px 20px', borderRadius:'8px', background:'#22c55e', border:'none', color:'white', cursor:'pointer', fontSize:'0.875rem', fontWeight:600 }}>
+                  {savingTask ? 'Guardando...' : 'Crear tarea'}
                 </button>
               </div>
             </div>
@@ -592,6 +703,7 @@ export default function CalendarView() {
                     <button
                       onClick={() => setSelDay(day)}
                       onDoubleClick={() => openQuickCreate(`${year}-${pad(month+1)}-${pad(day)}`, '08:00')}
+                      onContextMenu={e => { e.preventDefault(); openContextMenu(`${year}-${pad(month+1)}-${pad(day)}`, '08:00', e.clientX, e.clientY) }}
                       onMouseEnter={e => {
                         setHoveredDay(day)
                         if (expandTimer.current)  clearTimeout(expandTimer.current)
@@ -808,6 +920,7 @@ export default function CalendarView() {
             onMove={resizeEvent}
             onDoubleClickCell={openQuickCreate}
             onDragCreate={openDragCreate}
+            onCtxMenu={openContextMenu}
           />
         </div>
       )}
@@ -821,6 +934,7 @@ export default function CalendarView() {
             onMove={resizeEvent}
             onDoubleClickCell={openQuickCreate}
             onDragCreate={openDragCreate}
+            onCtxMenu={openContextMenu}
           />
         </div>
       )}
@@ -890,7 +1004,7 @@ function TimeGrid({ children, noAxisHeader }: { children: React.ReactNode; noAxi
   )
 }
 
-function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize, onMove, compact, noHeader, onDoubleClickCell, onDragCreate }: {
+function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize, onMove, compact, noHeader, onDoubleClickCell, onDragCreate, onCtxMenu }: {
   date: Date; events: CalendarEvent[]; today: Date
   onEventClick: (ev: CalendarEvent) => void
   onHeaderClick?: () => void
@@ -900,6 +1014,7 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
   noHeader?: boolean
   onDoubleClickCell?: (dateStr: string, time: string) => void
   onDragCreate?: (date: string, startTime: string, endTime: string) => void
+  onCtxMenu?: (date: string, time: string, x: number, y: number) => void
 }) {
   const isToday = isSameDay(date, today)
   const wknd = isWeekend(date)
@@ -979,6 +1094,7 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
           window.addEventListener('mousemove', onMove)
           window.addEventListener('mouseup', onUp)
         }) : undefined}
+        onContextMenu={onCtxMenu ? (e => { e.preventDefault(); const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect(); onCtxMenu(dateStr(date), pxToTimeStr(Math.max(0, e.clientY - rect.top)), e.clientX, e.clientY) }) : undefined}
         ref={cellsRef}
         style={{ flex:1, position:'relative', background: wknd ? 'rgba(239,68,68,0.02)' : 'transparent', cursor: onDragCreate ? 'crosshair' : 'default' }}>
         {/* Hour lines */}
@@ -1298,13 +1414,14 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent }: {
 }
 
 /* ─── Week view ─── */
-function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onMove, onDoubleClickCell, onDragCreate }: {
+function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onMove, onDoubleClickCell, onDragCreate, onCtxMenu }: {
   events: CalendarEvent[]; today: Date; days: Date[]
   onEventClick: (ev: CalendarEvent) => void; onDayClick: (d: Date) => void
   onResize: (id: string, start: string, end: string) => void
   onMove:   (id: string, start: string, end: string) => void
   onDoubleClickCell?: (date: string, time: string) => void
   onDragCreate?: (date: string, startTime: string, endTime: string) => void
+  onCtxMenu?: (date: string, time: string, x: number, y: number) => void
 }) {
   return (
     <>
@@ -1342,6 +1459,7 @@ function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onM
             noHeader
             onDoubleClickCell={onDoubleClickCell}
             onDragCreate={onDragCreate}
+            onCtxMenu={onCtxMenu}
           />
         ))}
       </TimeGrid>
@@ -1350,13 +1468,14 @@ function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onM
 }
 
 /* ─── Day view ─── */
-function DayView({ events, today, date, onEventClick, onResize, onMove, onDoubleClickCell, onDragCreate }: {
+function DayView({ events, today, date, onEventClick, onResize, onMove, onDoubleClickCell, onDragCreate, onCtxMenu }: {
   events: CalendarEvent[]; today: Date; date: Date
   onEventClick: (ev: CalendarEvent) => void
   onResize: (id: string, start: string, end: string) => void
   onMove:   (id: string, start: string, end: string) => void
   onDoubleClickCell?: (date: string, time: string) => void
   onDragCreate?: (date: string, startTime: string, endTime: string) => void
+  onCtxMenu?: (date: string, time: string, x: number, y: number) => void
 }) {
   const isToday = isSameDay(date, today)
   const wknd    = isWeekend(date)
@@ -1375,7 +1494,7 @@ function DayView({ events, today, date, onEventClick, onResize, onMove, onDouble
         </div>
       </div>
       <TimeGrid noAxisHeader>
-        <DayColumn date={date} today={today} events={events} onEventClick={onEventClick} onResize={onResize} onMove={onMove} noHeader onDoubleClickCell={onDoubleClickCell} onDragCreate={onDragCreate} />
+        <DayColumn date={date} today={today} events={events} onEventClick={onEventClick} onResize={onResize} onMove={onMove} noHeader onDoubleClickCell={onDoubleClickCell} onDragCreate={onDragCreate} onCtxMenu={onCtxMenu} />
       </TimeGrid>
     </>
   )
