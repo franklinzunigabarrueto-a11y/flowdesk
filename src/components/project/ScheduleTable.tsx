@@ -312,6 +312,12 @@ export default function ScheduleTable({ projectId }: Props) {
               <button onClick={() => transition(task.id, 'reopen')} title="Reintentar"
                 style={btnStyle('#f59e0b')}><RefreshCw size={10} /></button>
             )}
+            {(task.status === 'completed' || task.status === 'approved' || task.status === 'in_review') && (
+              <button
+                onClick={() => { if (confirm('¿Resetear a Pendiente? Se borrará el avance registrado.')) updateTask(task.id, { status: 'pending' as any, progress: 0, progress_proposed: 0 }) }}
+                title="Resetear a Pendiente"
+                style={btnStyle('#94a3b8')}>↺</button>
+            )}
           </div>
 
           {/* Acciones */}
