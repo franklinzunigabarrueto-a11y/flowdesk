@@ -825,8 +825,9 @@ export default function CalendarView() {
           {dayExpand && createPortal((() => {
             const { rect, phase, day: expDay } = dayExpand
             const isOpen = phase === 'open'
-            const expEvents = eventsForDay(new Date(year, month, expDay))
             const expDate   = new Date(year, month, expDay)
+            const expEvents = eventsForDay(expDate)
+            const expTasks  = tasksForDate(expDate)
             const dayLabel  = `${DAY_FULL[(expDate.getDay() + 6) % 7]}, ${expDay} de ${MONTHS[month]}`
             return (
               <>
@@ -871,6 +872,7 @@ export default function CalendarView() {
                       <p style={{ fontSize:'0.95rem', fontWeight:700, margin:0 }}>{dayLabel}</p>
                       <p style={{ fontSize:'0.78rem', color:'var(--text-muted)', margin:'2px 0 0' }}>
                         {expEvents.length} evento{expEvents.length !== 1 ? 's' : ''}
+                        {expTasks.length > 0 && ` · ${expTasks.length} tarea${expTasks.length !== 1 ? 's' : ''}`}
                       </p>
                     </div>
                     <button
@@ -881,32 +883,75 @@ export default function CalendarView() {
                     </button>
                   </div>
 
-                  {/* Events list */}
+                  {/* Events + Tasks list */}
                   <div style={{ padding:'0.875rem', overflowY:'auto', maxHeight:'calc(75vh - 72px)', display:'flex', flexDirection:'column', gap:'8px' }}>
-                    {expEvents.length === 0 ? (
+                    {expEvents.length === 0 && expTasks.length === 0 && (
                       <p style={{ fontSize:'0.85rem', color:'var(--text-muted)', textAlign:'center', padding:'2rem 0' }}>
-                        Sin eventos este día
+                        Sin eventos ni tareas este día
                       </p>
-                    ) : expEvents.map(ev => {
+                    )}
+                    {/* Tasks */}
+                    {expTasks.map(t => (
+                      <div key={t.id}
+                        onContextMenu={e => { e.preventDefault(); setCtxMenu({ kind:'task', x: e.clientX, y: e.clientY, task: t }) }}
+                        style={{ padding:'0.6rem 0.875rem', borderRadius:'10px', borderLeft:`3px solid ${TASK_COLOR}`, background:`${TASK_COLOR}18`, display:'flex', alignItems:'center', gap:'10px', opacity: t.status === 'completed' ? 0.5 : 1 }}>
+                        <button onClick={() => completeTask(t.id)}
+                          style={{ background:'none', border:`2px solid ${t.status === 'completed' ? '#16a34a' : TASK_COLOR}`, borderRadius:'5px', width:'20px', height:'20px', flexShrink:0, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', padding:0, color:'#16a34a', fontSize:'0.75rem' }}>
+                          {t.status === 'completed' ? '✓' : ''}
+                        </button>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <p style={{ fontSize:'0.875rem', fontWeight:600, margin:0, color:'var(--foreground)', textDecoration: t.status === 'completed' ? 'line-through' : 'none' }}>{t.title}</p>
+                          <p style={{ fontSize:'0.72rem', color:'var(--text-muted)', margin:'2px 0 0' }}>
+                            {t.priority === 'high' ? '🔴 Alta' : t.priority === 'medium' ? '🟡 Media' : '🟢 Baja'}
+                          </p>
+                        </div>
+                        <div style={{ display:'flex', gap:'4px' }}>
+                          <button onClick={() => { setNewTask({ id: t.id, title: t.title, date: t.due_date, priority: t.priority as any }); setShowQuickTask(true) }}
+                            style={{ background:'transparent', border:'none', cursor:'pointer', color:'var(--text-muted)', padding:'2px', borderRadius:'6px', display:'flex', alignItems:'center' }}
+                            onMouseEnter={e => (e.currentTarget.style.color = 'var(--primary)')}
+                            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}>
+                            <Pencil size={13} />
+                          </button>
+                          <button onClick={() => deleteTask(t.id)}
+                            style={{ background:'transparent', border:'none', cursor:'pointer', color:'var(--text-muted)', padding:'2px', borderRadius:'6px', display:'flex', alignItems:'center' }}
+                            onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
+                            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}>
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {/* Events */}
+                    {expEvents.map(ev => {
                       const evStart = new Date(ev.start)
                       const evEnd   = ev.end ? new Date(ev.end) : null
                       const timeStr = evStart.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' })
                         + (evEnd ? ` → ${evEnd.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' })}` : '')
                       return (
-                        <div key={ev.id} style={{
-                          padding:'0.65rem 0.875rem',
-                          borderRadius:'10px',
-                          borderLeft:`3px solid ${ev.color || 'var(--primary)'}`,
-                          background:`${ev.color || EVENT_COLOR}14`,
-                          display:'flex', flexDirection:'column', gap:'3px',
-                        }}>
-                          <p style={{ fontSize:'0.875rem', fontWeight:600, margin:0, color:'var(--foreground)' }}>{ev.title}</p>
-                          <p style={{ fontSize:'0.75rem', color:'var(--text-muted)', margin:0, display:'flex', alignItems:'center', gap:'4px' }}>
-                            <Clock size={11} /> {timeStr}
-                          </p>
-                          {ev.description && (
-                            <p style={{ fontSize:'0.75rem', color:'var(--text-muted)', margin:0 }}>{ev.description}</p>
-                          )}
+                        <div key={ev.id}
+                          onContextMenu={e => { e.preventDefault(); setCtxMenu({ kind:'event', x: e.clientX, y: e.clientY, event: ev }) }}
+                          style={{ padding:'0.65rem 0.875rem', borderRadius:'10px', borderLeft:`3px solid ${ev.color || EVENT_COLOR}`, background:`${ev.color || EVENT_COLOR}14`, display:'flex', gap:'8px', alignItems:'flex-start' }}>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <p style={{ fontSize:'0.875rem', fontWeight:600, margin:0, color:'var(--foreground)' }}>{ev.title}</p>
+                            <p style={{ fontSize:'0.75rem', color:'var(--text-muted)', margin:'3px 0 0', display:'flex', alignItems:'center', gap:'4px' }}>
+                              <Clock size={11} /> {timeStr}
+                            </p>
+                            {ev.description && <p style={{ fontSize:'0.75rem', color:'var(--text-muted)', margin:'3px 0 0' }}>{ev.description}</p>}
+                          </div>
+                          <div style={{ display:'flex', gap:'4px', flexShrink:0 }}>
+                            <button onClick={() => { setDayExpand(null); openEditPopup(ev) }}
+                              style={{ background:'transparent', border:'none', cursor:'pointer', color:'var(--text-muted)', padding:'2px', borderRadius:'6px', display:'flex', alignItems:'center' }}
+                              onMouseEnter={e => (e.currentTarget.style.color = 'var(--primary)')}
+                              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}>
+                              <Pencil size={13} />
+                            </button>
+                            <button onClick={() => { deleteEvent(ev.id); setDayExpand(null) }}
+                              style={{ background:'transparent', border:'none', cursor:'pointer', color:'var(--text-muted)', padding:'2px', borderRadius:'6px', display:'flex', alignItems:'center' }}
+                              onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
+                              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}>
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
                         </div>
                       )
                     })}
