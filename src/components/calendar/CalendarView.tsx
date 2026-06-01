@@ -72,7 +72,7 @@ function pxToTimeStr(px: number): string {
 }
 function snapTime15(t: string): string {
   const [h, m] = t.split(':').map(Number)
-  const snap = Math.round(m / 15) * 15
+  const snap = Math.round(m / 5) * 5
   if (snap >= 60) return `${pad(Math.min(h + 1, 23))}:00`
   return `${pad(h)}:${pad(snap)}`
 }
@@ -911,7 +911,7 @@ function DayColumn({ date, events, today, onEventClick, onHeaderClick, onResize,
   const dragCreateRef = useRef<{ startY: number; currentY: number } | null>(null)
   const cellsRef = useRef<HTMLDivElement>(null)
 
-  const SLOT_H = ROW_H / 4 // 15-min slot height
+  const SLOT_H = ROW_H / 12 // 5-min slot height
   const snapY  = hoverY !== null && !dragCreate ? Math.floor(hoverY / SLOT_H) * SLOT_H : null
 
   return (
@@ -1061,7 +1061,7 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent }: {
   const color  = event.color || COLORS[0]
   const isDragging = dragMode !== null
 
-  const pxPer15 = ROW_H / 4
+  const pxPer15 = ROW_H / 12  // 5-min snap (ROW_H / 12 = 56/12 ≈ 4.67 px per 5 min)
   const snap  = (px: number) => Math.round(px / pxPer15) * pxPer15
   const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
 
