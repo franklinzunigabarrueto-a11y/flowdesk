@@ -138,6 +138,7 @@ async function processItem(
         description: item.data.description,
         start_time: item.data.event_start,
         end_time: item.data.event_end,
+        color: null,
         google_event_id: googleEventId,
         whatsapp_message_id: messageId,
         image_url: imageUrl || null,

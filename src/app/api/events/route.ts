@@ -59,7 +59,7 @@ export async function POST(request: Request) {
 
   const { data: event, error } = await adminDb
     .from('calendar_events')
-    .insert({ ...body, user_id: user.id })
+    .insert({ ...body, user_id: user.id, color: body.color ?? null })
     .select()
     .single()
 
