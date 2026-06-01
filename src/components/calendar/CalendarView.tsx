@@ -935,14 +935,32 @@ export default function CalendarView() {
                 </div>
               ) : <>
                 {selTasks.map(t => (
-                  <div key={t.id} style={{ padding:'0.65rem 0.875rem', borderRadius:'10px', borderLeft:`3px solid ${TASK_COLOR}`, background:`${TASK_COLOR}18`, marginBottom:'8px', display:'flex', alignItems:'center', gap:'8px' }}>
-                    <span style={{ fontSize:'0.85rem' }}>✅</span>
-                    <div>
-                      <p style={{ fontSize:'0.875rem', fontWeight:600, margin:0, color:'var(--foreground)' }}>{t.title}</p>
+                  <div key={t.id}
+                    onContextMenu={e => { e.preventDefault(); setCtxMenu({ kind:'task', x: e.clientX, y: e.clientY, task: t }) }}
+                    style={{
+                      padding:'0.6rem 0.875rem', borderRadius:'10px',
+                      borderLeft:`3px solid ${TASK_COLOR}`, background:`${TASK_COLOR}18`,
+                      marginBottom:'8px', display:'flex', alignItems:'center', gap:'10px',
+                      opacity: t.status === 'completed' ? 0.5 : 1, transition:'opacity 0.2s',
+                    }}>
+                    {/* Checkbox */}
+                    <button onClick={() => completeTask(t.id)} title="Marcar como realizada"
+                      style={{ background:'none', border:`2px solid ${t.status === 'completed' ? '#16a34a' : TASK_COLOR}`, borderRadius:'5px', width:'20px', height:'20px', flexShrink:0, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', padding:0, color:'#16a34a', fontSize:'0.75rem', transition:'all 0.15s' }}>
+                      {t.status === 'completed' ? '✓' : ''}
+                    </button>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <p style={{ fontSize:'0.875rem', fontWeight:600, margin:0, color:'var(--foreground)', textDecoration: t.status === 'completed' ? 'line-through' : 'none' }}>{t.title}</p>
                       <p style={{ fontSize:'0.72rem', color:'var(--text-muted)', margin:'2px 0 0' }}>
                         {t.priority === 'high' ? '🔴 Alta' : t.priority === 'medium' ? '🟡 Media' : '🟢 Baja'}
                       </p>
                     </div>
+                    {/* Delete */}
+                    <button onClick={() => deleteTask(t.id)} title="Eliminar tarea"
+                      style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', padding:'2px', borderRadius:'6px', flexShrink:0, display:'flex', alignItems:'center' }}
+                      onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
+                      onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}>
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 ))}
                 {selEvents.map((ev, i) => (
