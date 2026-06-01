@@ -49,7 +49,7 @@ create table if not exists public.calendar_events (
   description text,
   start_time timestamptz not null,
   end_time timestamptz,
-  color text default '#7c5cfc',
+  color text default null,
   google_event_id text,
   whatsapp_message_id text,
   reminder_minutes integer default 60,
