@@ -13,6 +13,7 @@ import {
   ApprovalLog, ProjectResource, TaskAssignment, ProjectBaseline,
 } from '@/types'
 import ScheduleTable from './ScheduleTable'
+import GanttView     from './GanttView'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 const pad2 = (n: number) => String(n).padStart(2, '0')
@@ -291,7 +292,7 @@ export default function ProjectView() {
                 <ScheduleTable projectId={selectedId!} />
               )}
               {tab === 'gantt' && (
-                <GanttTab tasks={tasks} deps={deps} criticalIds={criticalIds} onUpdate={updateTask} projectId={selectedId!} />
+                <GanttView projectId={selectedId!} />
               )}
               {tab === 'recursos' && (
                 <RecursosTab
