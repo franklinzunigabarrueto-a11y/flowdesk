@@ -290,3 +290,14 @@ create index if not exists idx_assign_user        on public.schedule_assignments
 create index if not exists idx_baselines_project  on public.schedule_baselines(project_id, fecha_creacion desc);
 create index if not exists idx_approval_task      on public.schedule_approval_logs(task_id, created_at desc);
 create index if not exists idx_approval_user      on public.schedule_approval_logs(user_id);
+
+-- Fix: unique constraint para upsert de asignaciones
+alter table public.schedule_assignments
+  add constraint if not exists assignments_task_resource_unique unique (task_id, resource_id);
+
+-- Fix: columnas de línea base en project_tasks (ghost-bar en Gantt y tabla comparativa)
+alter table public.project_tasks
+  add column if not exists baseline_start    date,
+  add column if not exists baseline_end      date,
+  add column if not exists baseline_progress integer not null default 0
+    constraint baseline_progress_range check (baseline_progress between 0 and 100);

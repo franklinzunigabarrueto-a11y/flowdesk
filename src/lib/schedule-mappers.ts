@@ -115,10 +115,15 @@ export function mapAssignmentInputToDB(body: any) {
 // ─── schedule_baselines ──────────────────────────────────────────────────────
 
 export function mapBaselineToFrontend(b: any) {
+  // snapshot puede ser { tasks, dependencies } o un array legacy — normalizar a array
+  const raw = b.snapshot
+  const tasks: any[] = Array.isArray(raw) ? raw : (raw?.tasks ?? [])
+
   return {
     ...b,
-    name:       b.nombre        ?? b.name,
+    name:       b.nombre         ?? b.name,
     created_at: b.fecha_creacion ?? b.created_at,
+    snapshot:   tasks.map(mapTaskToFrontend),
   }
 }
 

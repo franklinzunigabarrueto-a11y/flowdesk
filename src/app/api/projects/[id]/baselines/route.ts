@@ -57,3 +57,35 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   await supabase.from('schedule_baselines').delete().eq('id', searchParams.get('baseline_id')!).eq('project_id', id)
   return NextResponse.json({ ok: true })
 }
+
+// Aplica una baseline al cronograma: copia start/end/progress a las columnas baseline_* de cada tarea
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const { ok, supabase } = await auth(id)
+  if (!ok) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+
+  const body = await req.json()
+  if (!body.baseline_id) return NextResponse.json({ error: 'baseline_id requerido' }, { status: 400 })
+
+  const { data: baseline } = await supabase
+    .from('schedule_baselines')
+    .select('snapshot')
+    .eq('id', body.baseline_id)
+    .eq('project_id', id)
+    .single()
+
+  if (!baseline) return NextResponse.json({ error: 'No encontrada' }, { status: 404 })
+
+  const raw = baseline.snapshot as any
+  const tasks: any[] = Array.isArray(raw) ? raw : (raw?.tasks ?? [])
+
+  for (const t of tasks) {
+    await supabase.from('project_tasks').update({
+      baseline_start:    t.start_date ?? null,
+      baseline_end:      t.end_date   ?? null,
+      baseline_progress: t.pct_avance_aprobado ?? t.progress ?? 0,
+    }).eq('id', t.id)
+  }
+
+  return NextResponse.json({ ok: true, applied: tasks.length })
+}
