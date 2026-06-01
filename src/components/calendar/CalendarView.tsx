@@ -1564,11 +1564,12 @@ function TaskRow({ days, tasks, onTaskComplete, onTaskCtxMenu, singleDay }: {
     <div style={{
       display:'flex', flexShrink:0,
       background:'rgba(234,179,8,0.10)',
-      borderLeft:'1px solid var(--border)', borderRight:'1px solid var(--border)',
+      border:'1px solid var(--border)',
+      borderTop:'none',
       borderBottom:'1px solid rgba(234,179,8,0.28)',
     }}>
       {!singleDay && (
-        <div style={{ width:'52px', flexShrink:0, borderRight:'1px solid rgba(234,179,8,0.28)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'visible' }}>
+        <div style={{ width:'52px', flexShrink:0, borderRight:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden' }}>
           <span style={{ fontSize:'0.6rem', color:'#92400e', fontWeight:800, whiteSpace:'nowrap', transform:'rotate(-90deg)', display:'block', letterSpacing:'0.08em' }}>TAREAS</span>
         </div>
       )}
