@@ -89,6 +89,8 @@ function autoEndTime(start: string): string {
    DayColumn reads this to suppress the hover indicator during drag. */
 let isDragActive = false
 
+type CalTask = { id: string; title: string; due_date: string; priority: string; status: string }
+
 /* ─── Main component ─── */
 export default function CalendarView() {
   const today = new Date()
@@ -113,11 +115,12 @@ export default function CalendarView() {
   type CtxMenu =
     | { kind: 'cell';  x: number; y: number; date: string; time: string }
     | { kind: 'event'; x: number; y: number; event: CalendarEvent }
+    | { kind: 'task';  x: number; y: number; task: CalTask }
   const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null)
 
-  // Quick task
+  // Quick task (id present = edit mode)
   const [showQuickTask, setShowQuickTask] = useState(false)
-  const [newTask,       setNewTask]       = useState({ title: '', date: '', priority: 'medium' as 'low'|'medium'|'high' })
+  const [newTask,       setNewTask]       = useState({ id: '', title: '', date: '', priority: 'medium' as 'low'|'medium'|'high' })
   const [savingTask,    setSavingTask]    = useState(false)
 
   const [editDraft, setEditDraft] = useState({ title: '', date: '', time: '', endTime: '', description: '' })
@@ -161,8 +164,7 @@ export default function CalendarView() {
   const { data: eventsData, mutate } = useSWR(swrKey, fetcher)
   const events: CalendarEvent[] = eventsData?.events ?? []
 
-  type CalTask = { id: string; title: string; due_date: string; priority: string; status: string }
-  const { data: tasksData } = useSWR(`/api/tasks?month=${month + 1}&year=${year}`, fetcher)
+  const { data: tasksData, mutate: mutateTasks } = useSWR(`/api/tasks?month=${month + 1}&year=${year}`, fetcher)
   const calTasks: CalTask[] = (tasksData?.tasks ?? []).filter((t: CalTask) => t.due_date && t.status !== 'completed')
   function tasksForDate(d: Date) { return calTasks.filter(t => t.due_date === dateStr(d)) }
 
@@ -312,13 +314,34 @@ export default function CalendarView() {
     if (!newTask.title.trim()) return
     setSavingTask(true)
     try {
-      await fetch('/api/tasks', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newTask.title, due_date: newTask.date || undefined, priority: newTask.priority }),
-      })
-      setNewTask({ title: '', date: '', priority: 'medium' })
+      if (newTask.id) {
+        await fetch(`/api/tasks/${newTask.id}`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: newTask.title, due_date: newTask.date || undefined, priority: newTask.priority }),
+        })
+      } else {
+        await fetch('/api/tasks', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: newTask.title, due_date: newTask.date || undefined, priority: newTask.priority }),
+        })
+      }
+      setNewTask({ id: '', title: '', date: '', priority: 'medium' })
       setShowQuickTask(false)
+      mutateTasks()
     } finally { setSavingTask(false) }
+  }
+
+  async function completeTask(id: string) {
+    await fetch(`/api/tasks/${id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'completed' }),
+    })
+    mutateTasks()
+  }
+
+  async function deleteTask(id: string) {
+    await fetch(`/api/tasks/${id}`, { method: 'DELETE' })
+    mutateTasks()
   }
 
   function openQuickCreate(date: string, time: string) {
@@ -517,12 +540,17 @@ export default function CalendarView() {
         }}>
           {ctxMenu.kind === 'cell' ? <>
             <CtxBtn icon="📅" label="Crear Evento" onClick={() => { setCtxMenu(null); openQuickCreate(ctxMenu.date, ctxMenu.time) }} />
-            <CtxBtn icon="✅" label="Crear Tarea"  onClick={() => { setCtxMenu(null); setNewTask(t => ({ ...t, date: ctxMenu.date })); setShowQuickTask(true) }} />
-          </> : <>
+            <CtxBtn icon="✅" label="Crear Tarea"  onClick={() => { setCtxMenu(null); setNewTask({ id:'', title:'', date: ctxMenu.date, priority:'medium' }); setShowQuickTask(true) }} />
+          </> : ctxMenu.kind === 'event' ? <>
             <CtxBtn icon="✏️" label="Editar Evento" onClick={() => { setCtxMenu(null); openEditPopup(ctxMenu.event) }} />
-            <CtxBtn icon="✅" label="Editar Tarea"  onClick={() => { setCtxMenu(null); setNewTask({ title: ctxMenu.event.title, date: dateStr(new Date(ctxMenu.event.start)), priority: 'medium' }); setShowQuickTask(true) }} />
+            <CtxBtn icon="✅" label="Editar Tarea"  onClick={() => { setCtxMenu(null); setNewTask({ id:'', title: ctxMenu.event.title, date: dateStr(new Date(ctxMenu.event.start)), priority:'medium' }); setShowQuickTask(true) }} />
             <div style={{ height:'1px', background:'var(--border)', margin:'4px 6px' }} />
             <CtxBtn icon="🗑️" label="Eliminar" danger onClick={() => { const ev = ctxMenu.event; setCtxMenu(null); fetch(`/api/events/${ev.id}`, { method:'DELETE' }).then(() => mutate()) }} />
+          </> : <>
+            <CtxBtn icon="✏️" label="Editar Tarea" onClick={() => { const t = ctxMenu.task; setCtxMenu(null); setNewTask({ id: t.id, title: t.title, date: t.due_date, priority: t.priority as any }); setShowQuickTask(true) }} />
+            <CtxBtn icon="✅" label="Marcar realizada" onClick={() => { const id = ctxMenu.task.id; setCtxMenu(null); completeTask(id) }} />
+            <div style={{ height:'1px', background:'var(--border)', margin:'4px 6px' }} />
+            <CtxBtn icon="🗑️" label="Eliminar" danger onClick={() => { const id = ctxMenu.task.id; setCtxMenu(null); deleteTask(id) }} />
           </>}
         </div>,
         document.body
@@ -535,7 +563,7 @@ export default function CalendarView() {
             <div style={{ height:'4px', background:'#22c55e' }} />
             <div style={{ padding:'1.5rem', display:'flex', flexDirection:'column', gap:'12px' }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <span style={{ fontSize:'0.82rem', fontWeight:600, color:'var(--text-muted)' }}>Nueva tarea</span>
+                <span style={{ fontSize:'0.82rem', fontWeight:600, color:'var(--text-muted)' }}>{newTask.id ? 'Editar tarea' : 'Nueva tarea'}</span>
                 <button type="button" onClick={() => setShowQuickTask(false)} style={{ background:'transparent', border:'none', cursor:'pointer', color:'var(--text-muted)', padding:'4px', borderRadius:'6px', display:'flex', alignItems:'center' }}><X size={16} /></button>
               </div>
               <input autoFocus type="text" placeholder="Título de la tarea..." value={newTask.title} required
@@ -561,7 +589,7 @@ export default function CalendarView() {
               <div style={{ display:'flex', gap:'8px', justifyContent:'flex-end', marginTop:'4px' }}>
                 <button type="button" onClick={() => setShowQuickTask(false)} style={{ padding:'8px 16px', borderRadius:'8px', background:'transparent', border:'1px solid var(--border)', color:'var(--text-muted)', cursor:'pointer', fontSize:'0.875rem' }}>Cancelar</button>
                 <button type="submit" disabled={savingTask} style={{ padding:'8px 20px', borderRadius:'8px', background:'#22c55e', border:'none', color:'white', cursor:'pointer', fontSize:'0.875rem', fontWeight:600 }}>
-                  {savingTask ? 'Guardando...' : 'Crear tarea'}
+                  {savingTask ? 'Guardando...' : newTask.id ? 'Guardar cambios' : 'Crear tarea'}
                 </button>
               </div>
             </div>
@@ -944,6 +972,8 @@ export default function CalendarView() {
             onCtxMenu={openContextMenu}
             onCtxMenuEvent={openEventContextMenu}
             tasks={calTasks}
+            onTaskComplete={completeTask}
+            onTaskCtxMenu={(task, x, y) => setCtxMenu({ kind:'task', x, y, task })}
           />
         </div>
       )}
@@ -960,6 +990,8 @@ export default function CalendarView() {
             onCtxMenu={openContextMenu}
             onCtxMenuEvent={openEventContextMenu}
             tasks={calTasks}
+            onTaskComplete={completeTask}
+            onTaskCtxMenu={(task, x, y) => setCtxMenu({ kind:'task', x, y, task })}
           />
         </div>
       )}
@@ -1443,9 +1475,84 @@ function EventBlock({ event, onClick, onResize, onMove: onMoveEvent, onCtxMenuEv
 }
 
 /* ─── Week view ─── */
-type CalTask = { id: string; title: string; due_date: string; priority: string; status: string }
+/* ─── TaskRow (all-day tasks strip for week/day views) ─── */
+function TaskRow({ days, tasks, onTaskComplete, onTaskCtxMenu, singleDay }: {
+  days: Date[]
+  tasks: CalTask[]
+  onTaskComplete?: (id: string) => void
+  onTaskCtxMenu?: (task: CalTask, x: number, y: number) => void
+  singleDay?: boolean
+}) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const MAX = 4
 
-function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onMove, onDoubleClickCell, onDragCreate, onCtxMenu, onCtxMenuEvent, tasks }: {
+  const hasTasks = days.some(d => tasks.some(t => t.due_date === dateStr(d)))
+  if (!hasTasks) return null
+
+  return (
+    <div style={{
+      display:'flex', flexShrink:0,
+      background:'rgba(234,179,8,0.06)',
+      borderLeft:'1px solid var(--border)', borderRight:'1px solid var(--border)',
+      borderBottom:'1px solid rgba(234,179,8,0.18)',
+    }}>
+      {!singleDay && (
+        <div style={{ width:'52px', flexShrink:0, borderRight:'1px solid var(--border)', display:'flex', alignItems:'flex-start', justifyContent:'center', paddingTop:'6px' }}>
+          <span style={{ fontSize:'0.55rem', color:'#b45309', fontWeight:700, letterSpacing:'0.04em' }}>TAR.</span>
+        </div>
+      )}
+      <div style={{ flex:1, display:'flex', overflowX:'hidden', paddingLeft: singleDay ? '56px' : 0 }}>
+        {days.map(d => {
+          const key = dateStr(d)
+          const dayTasks = tasks.filter(t => t.due_date === key)
+          if (dayTasks.length === 0) return <div key={key} style={{ flex:1, minWidth:'80px', borderRight:'1px solid var(--border)', minHeight:'8px' }} />
+          const isExpanded = expanded.has(key)
+          const visible = isExpanded ? dayTasks : dayTasks.slice(0, MAX)
+          const overflow = dayTasks.length - MAX
+          return (
+            <div key={key} style={{ flex:1, minWidth:'80px', padding:'3px 4px', borderRight:'1px solid var(--border)', display:'flex', flexDirection:'column', gap:'2px' }}>
+              {visible.map(t => (
+                <div key={t.id}
+                  onContextMenu={onTaskCtxMenu ? e => { e.preventDefault(); e.stopPropagation(); onTaskCtxMenu(t, e.clientX, e.clientY) } : undefined}
+                  style={{
+                    display:'flex', alignItems:'center', gap:'4px',
+                    background:'rgba(234,179,8,0.18)', border:'1px solid rgba(234,179,8,0.3)',
+                    borderRadius:'5px', padding:'2px 5px',
+                    opacity: t.status === 'completed' ? 0.45 : 1,
+                  }}>
+                  <button
+                    onClick={e => { e.stopPropagation(); onTaskComplete?.(t.id) }}
+                    title="Marcar como realizada"
+                    style={{ background:'none', border:'none', cursor:'pointer', padding:0, flexShrink:0, display:'flex', alignItems:'center', color: t.status === 'completed' ? '#16a34a' : '#92400e', fontSize:'0.72rem' }}
+                  >
+                    {t.status === 'completed' ? '✓' : '○'}
+                  </button>
+                  <span style={{ fontSize:'0.62rem', fontWeight:500, color:'var(--foreground)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', textDecoration: t.status === 'completed' ? 'line-through' : 'none', flex:1 }}>
+                    {t.title}
+                  </span>
+                </div>
+              ))}
+              {!isExpanded && overflow > 0 && (
+                <button onClick={() => setExpanded(s => new Set([...s, key]))}
+                  style={{ fontSize:'0.58rem', fontWeight:700, color:'#b45309', background:'transparent', border:'none', cursor:'pointer', textAlign:'left', padding:'1px 4px' }}>
+                  +{overflow} más
+                </button>
+              )}
+              {isExpanded && dayTasks.length > MAX && (
+                <button onClick={() => setExpanded(s => { const n = new Set(s); n.delete(key); return n })}
+                  style={{ fontSize:'0.58rem', fontWeight:700, color:'#b45309', background:'transparent', border:'none', cursor:'pointer', textAlign:'left', padding:'1px 4px' }}>
+                  Ver menos
+                </button>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onMove, onDoubleClickCell, onDragCreate, onCtxMenu, onCtxMenuEvent, tasks, onTaskComplete, onTaskCtxMenu }: {
   events: CalendarEvent[]; today: Date; days: Date[]
   onEventClick: (ev: CalendarEvent) => void; onDayClick: (d: Date) => void
   onResize: (id: string, start: string, end: string) => void
@@ -1455,6 +1562,8 @@ function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onM
   onCtxMenu?: (date: string, time: string, x: number, y: number) => void
   onCtxMenuEvent?: (ev: CalendarEvent, x: number, y: number) => void
   tasks?: CalTask[]
+  onTaskComplete?: (id: string) => void
+  onTaskCtxMenu?: (task: CalTask, x: number, y: number) => void
 }) {
   return (
     <>
@@ -1480,27 +1589,7 @@ function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onM
         </div>
       </div>
       {/* Tasks all-day row */}
-      {tasks && tasks.length > 0 && (
-        <div style={{ display:'flex', background:'var(--surface)', borderLeft:'1px solid var(--border)', borderRight:'1px solid var(--border)', flexShrink:0 }}>
-          <div style={{ width:'52px', flexShrink:0, borderRight:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center', padding:'4px 0' }}>
-            <span style={{ fontSize:'0.6rem', color:'var(--text-muted)', fontWeight:600, writingMode:'horizontal-tb' }}>TAR.</span>
-          </div>
-          <div style={{ flex:1, display:'flex', overflowX:'hidden' }}>
-            {days.map(d => {
-              const dayTasks = tasks.filter(t => t.due_date === dateStr(d))
-              return (
-                <div key={dateStr(d)} style={{ flex:1, minWidth:'80px', padding:'3px 4px', borderRight:'1px solid var(--border)', display:'flex', flexDirection:'column', gap:'2px', minHeight:'24px' }}>
-                  {dayTasks.map(t => (
-                    <div key={t.id} style={{ background: TASK_COLOR, borderRadius:'4px', padding:'1px 5px', fontSize:'0.62rem', fontWeight:600, color:'#1a1000', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                      {t.title}
-                    </div>
-                  ))}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
+      <TaskRow days={days} tasks={tasks ?? []} onTaskComplete={onTaskComplete} onTaskCtxMenu={onTaskCtxMenu} />
       {/* Scrollable time grid (no headers) */}
       <TimeGrid noAxisHeader>
         {days.map(d => (
@@ -1524,7 +1613,7 @@ function WeekView({ events, today, days, onEventClick, onDayClick, onResize, onM
 }
 
 /* ─── Day view ─── */
-function DayView({ events, today, date, onEventClick, onResize, onMove, onDoubleClickCell, onDragCreate, onCtxMenu, onCtxMenuEvent, tasks }: {
+function DayView({ events, today, date, onEventClick, onResize, onMove, onDoubleClickCell, onDragCreate, onCtxMenu, onCtxMenuEvent, tasks, onTaskComplete, onTaskCtxMenu }: {
   events: CalendarEvent[]; today: Date; date: Date
   onEventClick: (ev: CalendarEvent) => void
   onResize: (id: string, start: string, end: string) => void
@@ -1534,6 +1623,8 @@ function DayView({ events, today, date, onEventClick, onResize, onMove, onDouble
   onCtxMenu?: (date: string, time: string, x: number, y: number) => void
   onCtxMenuEvent?: (ev: CalendarEvent, x: number, y: number) => void
   tasks?: CalTask[]
+  onTaskComplete?: (id: string) => void
+  onTaskCtxMenu?: (task: CalTask, x: number, y: number) => void
 }) {
   const isToday = isSameDay(date, today)
   const wknd    = isWeekend(date)
@@ -1552,15 +1643,7 @@ function DayView({ events, today, date, onEventClick, onResize, onMove, onDouble
         </div>
       </div>
       {/* Tasks all-day row */}
-      {tasks && tasks.filter(t => t.due_date === dateStr(date)).length > 0 && (
-        <div style={{ display:'flex', background:'var(--surface)', borderLeft:'1px solid var(--border)', borderRight:'1px solid var(--border)', flexShrink:0, padding:'3px 4px 3px 60px', gap:'4px', flexWrap:'wrap' }}>
-          {tasks.filter(t => t.due_date === dateStr(date)).map(t => (
-            <div key={t.id} style={{ background: TASK_COLOR, borderRadius:'4px', padding:'2px 8px', fontSize:'0.7rem', fontWeight:600, color:'#1a1000' }}>
-              {t.title}
-            </div>
-          ))}
-        </div>
-      )}
+      <TaskRow days={[date]} tasks={tasks ?? []} onTaskComplete={onTaskComplete} onTaskCtxMenu={onTaskCtxMenu} singleDay />
       <TimeGrid noAxisHeader>
         <DayColumn date={date} today={today} events={events} onEventClick={onEventClick} onResize={onResize} onMove={onMove} noHeader onDoubleClickCell={onDoubleClickCell} onDragCreate={onDragCreate} onCtxMenu={onCtxMenu} onCtxMenuEvent={onCtxMenuEvent} />
       </TimeGrid>
