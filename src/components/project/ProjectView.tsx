@@ -14,6 +14,7 @@ import {
 } from '@/types'
 import ScheduleTable from './ScheduleTable'
 import GanttView     from './GanttView'
+import ImportWizard  from './ImportWizard'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 const pad2 = (n: number) => String(n).padStart(2, '0')
@@ -98,6 +99,7 @@ export default function ProjectView() {
   const [saving, setSaving] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState('')
+  const [showImportWizard, setShowImportWizard] = useState(false)
   const [showNewProject, setShowNewProject] = useState(false)
   const [newProjName, setNewProjName] = useState('')
   const [newProjDesc, setNewProjDesc] = useState('')
@@ -217,6 +219,14 @@ export default function ProjectView() {
 
   return (
     <div style={{ padding: '1.5rem 2rem', height: '100%', overflowY: 'auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      {/* Import wizard */}
+      {showImportWizard && selectedId && (
+        <ImportWizard
+          projectId={selectedId}
+          onClose={() => setShowImportWizard(false)}
+          onSuccess={() => { setShowImportWizard(false); mutateTasks() }}
+        />
+      )}
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div>
@@ -277,9 +287,14 @@ export default function ProjectView() {
               {/* Actions */}
               {tab === 'cronograma' && (
                 <>
-                  <button onClick={() => addTask(null, 1)} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', borderRadius: '8px', background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)', color: 'var(--primary)', fontWeight: 600, fontSize: '0.78rem', cursor: 'pointer' }}><Plus size={13} /> Partida</button>
-                  <button onClick={() => fileRef.current?.click()} disabled={importing} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', borderRadius: '8px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#3b82f6', fontWeight: 600, fontSize: '0.78rem', cursor: 'pointer' }}><Upload size={13} /> {importing ? 'Importando...' : 'MS Project XML'}</button>
-                  <input ref={fileRef} type="file" accept=".xml" style={{ display: 'none' }} onChange={importXML} />
+                  <button onClick={() => setShowImportWizard(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', borderRadius: '8px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#3b82f6', fontWeight: 600, fontSize: '0.78rem', cursor: 'pointer' }}>
+                    <Upload size={13} /> Importar
+                  </button>
+                  <a href={selectedId ? `/api/projects/${selectedId}/export/csv` : '#'}
+                    download style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', borderRadius: '8px', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', color: '#16a34a', fontWeight: 600, fontSize: '0.78rem', textDecoration: 'none' }}>
+                    ↓ CSV
+                  </a>
                 </>
               )}
             </div>
