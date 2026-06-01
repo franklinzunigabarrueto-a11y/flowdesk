@@ -18,9 +18,14 @@ export async function sendWhatsAppMessage(to: string, message: string): Promise<
     }),
   })
 
+  const body = await response.json()
   if (!response.ok) {
-    const error = await response.json()
-    throw new Error(`Error WhatsApp API: ${JSON.stringify(error)}`)
+    throw new Error(`Error WhatsApp API: ${JSON.stringify(body)}`)
+  }
+  // Log para detectar rechazos silenciosos (ej. ventana 24h expirada)
+  if (body?.messages?.[0]?.message_status === 'failed' || body?.error) {
+    console.error('[whatsapp] message rejected by Meta:', JSON.stringify(body))
+    throw new Error(`WhatsApp message rejected: ${JSON.stringify(body)}`)
   }
 }
 
